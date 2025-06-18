@@ -1,0 +1,127 @@
+{
+  "info": {
+    "name": "TicketsApp",
+    "_postman_id": "d8e2c13b-1e4e-47c8-9336-cfd8d7b9a1e7",
+    "description": "APIs del sistema de tickets",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@mail.com\",\n  \"password\": \"1234\"\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/auth/login", "host": ["localhost"], "port": "3000", "path": ["api", "auth", "login"] }
+      }
+    },
+    {
+      "name": "Usuarios - Listar",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "http://localhost:3000/api/users", "host": ["localhost"], "port": "3000", "path": ["api", "users"] }
+      }
+    },
+    {
+      "name": "Usuarios - Crear",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Ejecutor Uno\",\n  \"email\": \"ejecutor1@mail.com\",\n  \"password\": \"1234\",\n  \"rol\": \"ejecutor\"\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/users", "host": ["localhost"], "port": "3000", "path": ["api", "users"] }
+      }
+    },
+    {
+      "name": "Áreas - Listar",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "http://localhost:3000/api/areas", "host": ["localhost"], "port": "3000", "path": ["api", "areas"] }
+      }
+    },
+    {
+      "name": "Áreas - Crear",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"TI\"\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/areas", "host": ["localhost"], "port": "3000", "path": ["api", "areas"] }
+      }
+    },
+    {
+      "name": "Tipo Atención - Listar",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "http://localhost:3000/api/tipos", "host": ["localhost"], "port": "3000", "path": ["api", "tipos"] }
+      }
+    },
+    {
+      "name": "Tipo Atención - Crear",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Instalación de software\",\n  \"area_id\": 1,\n  \"ejecutor_id\": 2\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/tipos", "host": ["localhost"], "port": "3000", "path": ["api", "tipos"] }
+      }
+    },
+    {
+      "name": "Tickets - Crear",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "tipo_atencion_id", "value": "1", "type": "text" },
+            { "key": "descripcion", "value": "Mi impresora no imprime", "type": "text" },
+            { "key": "archivo", "type": "file", "src": [] }
+          ]
+        },
+        "url": { "raw": "http://localhost:3000/api/tickets", "host": ["localhost"], "port": "3000", "path": ["api", "tickets"] }
+      }
+    },
+    {
+      "name": "Tickets - Cambiar estado",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"estado\": \"trabajando\",\n  \"observacion\": \"Se está revisando el equipo.\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/tickets/1/estado",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "tickets", "1", "estado"]
+        }
+      }
+    }
+  ]
+}
