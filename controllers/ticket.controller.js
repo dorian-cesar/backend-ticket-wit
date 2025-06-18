@@ -35,3 +35,43 @@ exports.cambiarEstado = (req, res) => {
     });
   });
 };
+
+exports.listarTodos = (req, res) => {
+  const query = `
+    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+           t.created_at, u.nombre AS solicitante, a.nombre AS area,
+           ta.nombre AS tipo_atencion, e.nombre AS ejecutor
+    FROM tickets t
+    JOIN users u ON t.solicitante_id = u.id
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users e ON t.ejecutor_id = e.id
+    ORDER BY t.created_at DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error al listar todos los tickets" });
+    res.json(results);
+  });
+};
+
+exports.listarPorUsuario = (req, res) => {
+  const usuario_id = req.params.usuario_id;
+
+  const query = `
+    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+           t.created_at, a.nombre AS area,
+           ta.nombre AS tipo_atencion, e.nombre AS ejecutor
+    FROM tickets t
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users e ON t.ejecutor_id = e.id
+    WHERE t.solicitante_id = ?
+    ORDER BY t.created_at DESC
+  `;
+
+  db.query(query, [usuario_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error al listar tickets del usuario" });
+    res.json(results);
+  });
+};
