@@ -1,18 +1,40 @@
 const db = require("../models/db");
 
+
+
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
 
-  const query = `
-    INSERT INTO tickets (solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf)
-    SELECT ?, ?, ?, t.ejecutor_id, ?, ?
-    FROM tipo_atencion t WHERE t.id = ?
-  `;
+  // Paso 1: obtener el ejecutor_id asociado al tipo_atencion_id
+  const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
+  console.log("ID recibido:", tipo_atencion_id);
 
-  db.query(query, [solicitante_id, area_id, tipo_atencion_id, observaciones, archivo_pdf, tipo_atencion_id], (err, result) => {
-    if (err) return res.status(500).json({ message: "Error al crear ticket" });
-    res.json({ message: "Ticket creado correctamente", ticketId: result.insertId });
+  db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
+    console.log("Query ejecutor_id:", err, rows);
+
+    if (err) return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ message: "El tipo_atencion_id no existe o no tiene ejecutor asociado." });
+    }
+
+    const ejecutor_id = rows[0].ejecutor_id;
+
+    // Paso 2: insertar el ticket con el ejecutor
+    const insertTicket = `
+      INSERT INTO tickets (solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(insertTicket, [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf], (err2, result) => {
+      if (err2) return res.status(500).json({ message: "Error al crear ticket", error: err2 });
+
+      res.json({
+        message: "Ticket creado correctamente",
+        ticketId: result.insertId
+      });
+    });
   });
 };
 
