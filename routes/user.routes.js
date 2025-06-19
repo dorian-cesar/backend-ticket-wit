@@ -4,7 +4,7 @@ const controller = require("../controllers/user.controller");
 const auth = require("../middleware/auth.middleware");
 
 router.get("/", auth.verify, controller.listarUsuarios);
-router.post("/", controller.crearUsuario);
+router.post("/", auth.verify,controller.crearUsuario);
 router.put("/:id", auth.verify, controller.editarUsuario);
 router.delete("/:id", auth.verify, controller.borrarUsuario);
 

@@ -14,6 +14,6 @@ router.post("/crear", auth.verify, upload.single("archivo_pdf"), ticketControlle
 router.put("/estado/:ticket_id", auth.verify, ticketController.cambiarEstado);
 
 router.get("/", auth.verify, ticketController.listarTodos); // Listar todos
-router.get("/usuario/:usuario_id", auth.verify, ticketController.listarPorUsuario); // Listar por usuario
+router.get("/:usuario_id", auth.verify, ticketController.listarPorUsuario); // Listar por usuario
 
 module.exports = router;
