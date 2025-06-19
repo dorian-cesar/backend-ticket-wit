@@ -42,27 +42,52 @@ exports.cambiarEstado = (req, res) => {
   const { ticket_id } = req.params;
   const { nuevo_estado, observacion, usuario_id } = req.body;
 
-  db.query("SELECT estado FROM tickets WHERE id = ?", [ticket_id], (err, results) => {
-    if (err || results.length === 0) return res.status(404).json({ message: "Ticket no encontrado" });
+  // Verificar que el usuario sea el ejecutor asignado al ticket
+  const queryVerificacion = "SELECT estado, ejecutor_id FROM tickets WHERE id = ?";
 
-    const estado_anterior = results[0].estado;
+  db.query(queryVerificacion, [ticket_id], (err, results) => {
+    if (err || results.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
 
+    const { estado: estado_anterior, ejecutor_id } = results[0];
+
+    if (usuario_id != ejecutor_id) {
+      return res.status(403).json({
+        message: "No tienes permisos para cambiar el estado de este ticket. Solo el ejecutor asignado puede hacerlo."
+      });
+    }
+
+    // Actualizar estado del ticket
     db.query("UPDATE tickets SET estado = ? WHERE id = ?", [nuevo_estado, ticket_id], (err2) => {
-      if (err2) return res.status(500).json({ message: "Error al actualizar" });
+      if (err2) {
+        return res.status(500).json({ message: "Error al actualizar el estado del ticket" });
+      }
 
-      db.query("INSERT INTO historial_estado (ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id) VALUES (?, ?, ?, ?, ?)",
-        [ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id],
-        () => res.json({ message: "Estado actualizado" })
-      );
+      // Insertar en historial
+      const queryHistorial = `
+        INSERT INTO historial_estado (ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+
+      db.query(queryHistorial, [ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id], (err3) => {
+        if (err3) {
+          return res.status(500).json({ message: "Error al registrar el historial de estado" });
+        }
+
+        res.json({ message: "Estado actualizado correctamente" });
+      });
     });
   });
 };
+
+
 
 exports.listarTodos = (req, res) => {
   const query = `
     SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
            t.fecha_creacion, u.nombre AS solicitante, a.nombre AS area,
-           ta.nombre AS tipo_atencion, e.nombre AS ejecutor
+           ta.nombre AS tipo_atencion, e.nombre AS ejecutor , e.email AS corre_ejecutor, e.id As id_ejecutor
     FROM tickets t
     JOIN users u ON t.solicitante_id = u.id
     JOIN areas a ON t.area_id = a.id
@@ -79,14 +104,14 @@ exports.listarTodos = (req, res) => {
         res.json(results);
   });
 };
-
+/*
 exports.listarPorUsuario = (req, res) => {
   const usuario_id = req.params.usuario_id;
 
   const query = `
     SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
            t.fecha_creacion, a.nombre AS area,
-           ta.nombre AS tipo_atencion, e.nombre AS ejecutor
+           ta.nombre AS tipo_atencion, e.nombre AS ejecutor , e.email AS corre_ejecutor, e.id As id_ejecutor
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
@@ -98,5 +123,64 @@ exports.listarPorUsuario = (req, res) => {
   db.query(query, [usuario_id], (err, results) => {
     if (err) return res.status(500).json({ message: "Error al listar tickets del usuario" });
     res.json(results);
+  });
+};
+*/
+exports.listarPorUsuario = (req, res) => {
+  const usuario_id = req.params.usuario_id;
+
+  const queryTickets = `
+    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+           t.fecha_creacion, a.nombre AS area,
+           ta.nombre AS tipo_atencion, e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
+    FROM tickets t
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users e ON t.ejecutor_id = e.id
+    WHERE t.solicitante_id = ?
+    ORDER BY t.fecha_creacion DESC
+  `;
+
+  db.query(queryTickets, [usuario_id], (err, tickets) => {
+    if (err) return res.status(500).json({ message: "Error al listar tickets del usuario", error: err });
+
+    if (tickets.length === 0) return res.json([]); // sin tickets
+
+    // Obtener los IDs de los tickets para traer los historiales en un solo query
+    const ticketIds = tickets.map(t => t.id);
+
+    const queryHistorial = `
+      SELECT h.ticket_id, h.estado_anterior, h.nuevo_estado, h.observacion, h.fecha,
+             u.nombre AS usuario_cambio
+      FROM historial_estado h
+      JOIN users u ON h.usuario_id = u.id
+      WHERE h.ticket_id IN (?)
+      ORDER BY h.fecha ASC
+    `;
+
+    db.query(queryHistorial, [ticketIds], (err2, historiales) => {
+      if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
+
+      // Organizar historial por ticket_id
+      const historialPorTicket = {};
+      historiales.forEach(h => {
+        if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
+        historialPorTicket[h.ticket_id].push({
+          estado_anterior: h.estado_anterior,
+          nuevo_estado: h.nuevo_estado,
+          observacion: h.observacion,
+          fecha: h.fecha,
+          usuario_cambio: h.usuario_cambio
+        });
+      });
+
+      // Agregar el historial a cada ticket
+      const respuesta = tickets.map(ticket => ({
+        ...ticket,
+        historial: historialPorTicket[ticket.id] || []
+      }));
+
+      res.json(respuesta);
+    });
   });
 };
