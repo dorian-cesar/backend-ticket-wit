@@ -2,18 +2,20 @@ const db = require("../models/db");
 
 
 
+const nodemailer = require("nodemailer");
+//const db = require("../db"); // Ajusta si tu conexión está en otro archivo
+
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
 
   // Paso 1: obtener el ejecutor_id asociado al tipo_atencion_id
   const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
-  console.log("ID recibido:", tipo_atencion_id);
 
   db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
-    console.log("Query ejecutor_id:", err, rows);
-
-    if (err) return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
+    if (err) {
+      return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
+    }
 
     if (!rows || rows.length === 0) {
       return res.status(400).json({ message: "El tipo_atencion_id no existe o no tiene ejecutor asociado." });
@@ -21,22 +23,68 @@ exports.crearTicket = (req, res) => {
 
     const ejecutor_id = rows[0].ejecutor_id;
 
-    // Paso 2: insertar el ticket con el ejecutor
-    const insertTicket = `
-      INSERT INTO tickets (solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
+    // Paso 2: obtener el email del ejecutor
+    const queryEmail = "SELECT email, nombre FROM users WHERE id = ?";
+    db.query(queryEmail, [ejecutor_id], (err2, userRows) => {
+      if (err2) {
+        return res.status(500).json({ message: "Error al consultar usuario ejecutor", error: err2 });
+      }
 
-    db.query(insertTicket, [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf], (err2, result) => {
-      if (err2) return res.status(500).json({ message: "Error al crear ticket", error: err2 });
+      if (!userRows || userRows.length === 0) {
+        return res.status(400).json({ message: "No se encontró usuario ejecutor." });
+      }
 
-      res.json({
-        message: "Ticket creado correctamente",
-        ticketId: result.insertId
+      const { email: ejecutorEmail, nombre: ejecutorNombre } = userRows[0];
+
+      // Paso 3: insertar el ticket
+      const insertTicket = `
+        INSERT INTO tickets (solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      db.query(insertTicket, [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf], (err3, result) => {
+        if (err3) {
+          return res.status(500).json({ message: "Error al crear ticket", error: err3 });
+        }
+
+        // Paso 4: enviar correo al ejecutor
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        const mailOptions = {
+          from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+          to: ejecutorEmail,
+          subject: "Nuevo ticket asignado",
+          html: `
+            <p>Hola ${ejecutorNombre},</p>
+            <p>Se te ha asignado un nuevo ticket de atención.</p>
+            <p><strong>Observaciones:</strong> ${observaciones}</p>
+            <p>Por favor, revisa el sistema para gestionarlo.</p>
+          `
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error("Error al enviar el correo:", error);
+          } else {
+            console.log("Correo enviado: " + info.response);
+          }
+
+          res.json({
+            message: "Ticket creado correctamente y correo enviado al ejecutor.",
+            ticketId: result.insertId
+          });
+        });
       });
     });
   });
 };
+
 
 exports.editarTicket = (req, res) => {
   const ticketId = req.params.id;
@@ -88,19 +136,21 @@ exports.editarTicket = (req, res) => {
 };
 
 
+
+
 exports.cambiarEstado = (req, res) => {
   const { ticket_id } = req.params;
   const { nuevo_estado, observacion, usuario_id } = req.body;
 
-  // Verificar que el usuario sea el ejecutor asignado al ticket
-  const queryVerificacion = "SELECT estado, ejecutor_id FROM tickets WHERE id = ?";
+  // Paso 1: Verificar que el usuario es el ejecutor y obtener solicitante_id
+  const queryVerificacion = "SELECT estado, ejecutor_id, solicitante_id FROM tickets WHERE id = ?";
 
   db.query(queryVerificacion, [ticket_id], (err, results) => {
     if (err || results.length === 0) {
       return res.status(404).json({ message: "Ticket no encontrado" });
     }
 
-    const { estado: estado_anterior, ejecutor_id } = results[0];
+    const { estado: estado_anterior, ejecutor_id, solicitante_id } = results[0];
 
     if (usuario_id != ejecutor_id) {
       return res.status(403).json({
@@ -108,13 +158,13 @@ exports.cambiarEstado = (req, res) => {
       });
     }
 
-    // Actualizar estado del ticket
+    // Paso 2: Actualizar el estado del ticket
     db.query("UPDATE tickets SET estado = ? WHERE id = ?", [nuevo_estado, ticket_id], (err2) => {
       if (err2) {
         return res.status(500).json({ message: "Error al actualizar el estado del ticket" });
       }
 
-      // Insertar en historial
+      // Paso 3: Insertar en historial
       const queryHistorial = `
         INSERT INTO historial_estado (ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id)
         VALUES (?, ?, ?, ?, ?)
@@ -125,7 +175,46 @@ exports.cambiarEstado = (req, res) => {
           return res.status(500).json({ message: "Error al registrar el historial de estado" });
         }
 
-        res.json({ message: "Estado actualizado correctamente" });
+        // Paso 4: Obtener correo del solicitante
+        const queryEmail = "SELECT email, nombre FROM users WHERE id = ?";
+        db.query(queryEmail, [solicitante_id], (err4, userRows) => {
+          if (err4 || userRows.length === 0) {
+            return res.status(500).json({ message: "Error al obtener datos del solicitante" });
+          }
+
+          const { email: solicitanteEmail, nombre: solicitanteNombre } = userRows[0];
+
+          // Paso 5: Enviar correo al solicitante
+          const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            }
+          });
+
+          const mailOptions = {
+            from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+            to: solicitanteEmail,
+            subject: `Estado actualizado del ticket #${ticket_id}`,
+            html: `
+              <p>Hola ${solicitanteNombre},</p>
+              <p>El estado de tu ticket <strong>#${ticket_id}</strong> ha sido actualizado.</p>
+              <p><strong>Nuevo estado:</strong> ${nuevo_estado}</p>
+              <p><strong>Observación:</strong> ${observacion}</p>
+              <p>Revisa el sistema para más información.</p>
+            `
+          };
+
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              console.error("Error al enviar correo:", error);
+              // No detenemos el flujo por error de correo
+            }
+              console.log(solicitanteEmail);
+            res.json({ message: "Estado actualizado y correo enviado al solicitante." });
+          });
+        });
       });
     });
   });
