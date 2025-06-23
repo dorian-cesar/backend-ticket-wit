@@ -22,6 +22,7 @@ app.use("/api/users", userRoutes); // ✅ AGREGADO
 app.use("/api/areas", areaRoutes);
 app.use("/api/tipos", tipoAtencionRoutes);
 app.use("/api/email", emailRoutes); // ✅
+app.use(express.static("public"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Servidor corriendo en puerto", PORT));
