@@ -11,6 +11,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post("/crear", auth.verify, upload.single("archivo_pdf"), ticketController.crearTicket);
+router.put("/editar/:id", upload.single("archivo_pdf"), ticketController.editarTicket);
+
 router.put("/estado/:ticket_id", auth.verify, ticketController.cambiarEstado);
 
 router.get("/", auth.verify, ticketController.listarTodos); // Listar todos

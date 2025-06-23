@@ -38,6 +38,56 @@ exports.crearTicket = (req, res) => {
   });
 };
 
+exports.editarTicket = (req, res) => {
+  const ticketId = req.params.id;
+  const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
+  const archivo_pdf = req.file ? req.file.filename : null;
+
+  // Paso 1: obtener el ejecutor_id del nuevo tipo de atención
+  const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
+  
+  db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ message: "El tipo_atencion_id no existe o no tiene ejecutor asociado." });
+    }
+
+    const ejecutor_id = rows[0].ejecutor_id;
+
+    // Paso 2: construir la consulta de actualización dinámicamente
+    let updateQuery = `
+      UPDATE tickets
+      SET solicitante_id = ?, area_id = ?, tipo_atencion_id = ?, ejecutor_id = ?, observaciones = ?
+    `;
+    const params = [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones];
+
+    if (archivo_pdf) {
+      updateQuery += `, archivo_pdf = ?`;
+      params.push(archivo_pdf);
+    }
+
+    updateQuery += ` WHERE id = ?`;
+    params.push(ticketId);
+
+    // Paso 3: ejecutar la actualización
+    db.query(updateQuery, params, (err2, result) => {
+      if (err2) {
+        return res.status(500).json({ message: "Error al actualizar el ticket", error: err2 });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Ticket no encontrado." });
+      }
+
+      res.json({ message: "Ticket actualizado correctamente." });
+    });
+  });
+};
+
+
 exports.cambiarEstado = (req, res) => {
   const { ticket_id } = req.params;
   const { nuevo_estado, observacion, usuario_id } = req.body;
@@ -104,28 +154,7 @@ exports.listarTodos = (req, res) => {
         res.json(results);
   });
 };
-/*
-exports.listarPorUsuario = (req, res) => {
-  const usuario_id = req.params.usuario_id;
 
-  const query = `
-    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
-           t.fecha_creacion, a.nombre AS area,
-           ta.nombre AS tipo_atencion, e.nombre AS ejecutor , e.email AS corre_ejecutor, e.id As id_ejecutor
-    FROM tickets t
-    JOIN areas a ON t.area_id = a.id
-    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
-    JOIN users e ON t.ejecutor_id = e.id
-    WHERE t.solicitante_id = ?
-    ORDER BY t.fecha_creacion DESC
-  `;
-
-  db.query(query, [usuario_id], (err, results) => {
-    if (err) return res.status(500).json({ message: "Error al listar tickets del usuario" });
-    res.json(results);
-  });
-};
-*/
 exports.listarPorUsuario = (req, res) => {
   const usuario_id = req.params.usuario_id;
 
