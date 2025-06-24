@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aceptación de Trabajo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <style>
+    canvas {
+      border: 1px solid #ccc;
+      width: 100%;
+      height: 200px;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+  <div class="container mt-5">
+    <h3>Confirmación de Trabajo Realizado</h3>
+    <div id="ticketDetalles" class="mt-3"></div>
+    <hr />
+
+    <h5>Historial de Estado</h5>
+    <ul id="historial" class="list-group mb-4"></ul>
+
+    <h5>Firma del Solicitante</h5>
+    <canvas id="firmaCanvas"></canvas>
+    <button class="btn btn-secondary mt-2" id="limpiarFirma">Limpiar Firma</button>
+
+    <button class="btn btn-success mt-4" id="aceptarTrabajo">Confirmar Aceptación</button>
+
+    <div id="mensaje" class="mt-3"></div>
+  </div>
+
+  <script>
+    const ticket_id = new URLSearchParams(window.location.search).get("ticket_id");
+
+    // Cargar ticket y mostrar
+    $.get(`/api/tickets/aceptacion/${ticket_id}`, function (data) {
+      $("#ticketDetalles").html(`
+        <p><strong>Ticket #${data.id}</strong></p>
+        <p><strong>Área:</strong> ${data.area}</p>
+        <p><strong>Tipo Atención:</strong> ${data.tipo_atencion}</p>
+        <p><strong>Observaciones:</strong> ${data.observaciones}</p>
+        <p><strong>Solicitante:</strong> ${data.solicitante} (${data.correo_solicitante})</p>
+        <p><strong>Fecha:</strong> ${new Date(data.fecha_creacion).toLocaleString()}</p>
+      `);
+
+      data.historial.forEach(h => {
+        $("#historial").append(`<li class="list-group-item">
+          ${new Date(h.fecha).toLocaleString()} → <strong>${h.estado_anterior}</strong> → <strong>${h.nuevo_estado}</strong>
+          <br><em>${h.observacion}</em> por <strong>${h.usuario_cambio}</strong>
+        </li>`);
+      });
+    });
+
+    // Canvas de firma
+    const canvas = document.getElementById("firmaCanvas");
+    const ctx = canvas.getContext("2d");
+    let dibujando = false;
+
+    const getPos = e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: x - rect.left, y: y - rect.top };
+    };
+
+    const iniciarFirma = e => {
+      dibujando = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    const dibujar = e => {
+      if (!dibujando) return;
+      const pos = getPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    };
+
+    const terminarFirma = () => { dibujando = false; };
+
+    canvas.addEventListener("mousedown", iniciarFirma);
+    canvas.addEventListener("mousemove", dibujar);
+    canvas.addEventListener("mouseup", terminarFirma);
+    canvas.addEventListener("touchstart", iniciarFirma);
+    canvas.addEventListener("touchmove", dibujar);
+    canvas.addEventListener("touchend", terminarFirma);
+
+    $("#limpiarFirma").click(() => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Enviar firma
+    $("#aceptarTrabajo").click(() => {
+      const firma = canvas.toDataURL("image/png");
+
+      $.ajax({
+        url: `/api/tickets/firmar/${ticket_id}`,
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ firma }),
+        success: () => {
+          $("#mensaje").html(`<div class="alert alert-success">✅ Trabajo aceptado con éxito</div>`);
+        },
+        error: () => {
+          $("#mensaje").html(`<div class="alert alert-danger">❌ Error al registrar aceptación</div>`);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

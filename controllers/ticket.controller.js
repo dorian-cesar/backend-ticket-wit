@@ -56,16 +56,19 @@ exports.crearTicket = (req, res) => {
           }
         });
 
+        const ticketId = result.insertId;
+
         const mailOptions = {
           from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
           to: ejecutorEmail,
-          subject: "Nuevo ticket asignado",
+          subject: `Nuevo ticket asignado (Ticket #${ticketId})`,
           html: `
-            <p>Hola ${ejecutorNombre},</p>
-            <p>Se te ha asignado un nuevo ticket de atención.</p>
-            <p><strong>Observaciones:</strong> ${observaciones}</p>
-            <p>Por favor, revisa el sistema para gestionarlo.</p>
-          `
+    <p>Hola ${ejecutorNombre},</p>
+    <p>Se te ha asignado un nuevo ticket de atención.</p>
+    <p><strong>Número de Ticket:</strong> ${ticketId}</p>
+    <p><strong>Observaciones:</strong> ${observaciones}</p>
+    <p>Revisa el sistema para más información <a href="https://soporte.dev-wit.com/">aquí</a>.</p>
+  `
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
@@ -93,7 +96,7 @@ exports.editarTicket = (req, res) => {
 
   // Paso 1: obtener el ejecutor_id del nuevo tipo de atención
   const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
-  
+
   db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
     if (err) {
       return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
@@ -202,7 +205,8 @@ exports.cambiarEstado = (req, res) => {
               <p>El estado de tu ticket <strong>#${ticket_id}</strong> ha sido actualizado.</p>
               <p><strong>Nuevo estado:</strong> ${nuevo_estado}</p>
               <p><strong>Observación:</strong> ${observacion}</p>
-              <p>Revisa el sistema para más información.</p>
+              <p>Revisa el sistema para más información <a href="https://soporte.dev-wit.com/">aqui</a>.</p>
+
             `
           };
 
@@ -211,7 +215,7 @@ exports.cambiarEstado = (req, res) => {
               console.error("Error al enviar correo:", error);
               // No detenemos el flujo por error de correo
             }
-              console.log(solicitanteEmail);
+            console.log(solicitanteEmail);
             res.json({ message: "Estado actualizado y correo enviado al solicitante." });
           });
         });
@@ -240,7 +244,7 @@ exports.listarTodos = (req, res) => {
       console.error("Error al listar tickets:", err); // 👈 agrega esto
       return res.status(500).json({ message: "Error al listar todos los tickets" });
     }
-        res.json(results);
+    res.json(results);
   });
 };
 
