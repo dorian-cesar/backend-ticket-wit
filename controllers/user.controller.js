@@ -39,7 +39,7 @@ exports.borrarUsuario = (req, res) => {
   });
 };
 
-const bcrypt = require("bcrypt");
+//const bcrypt = require("bcrypt");
 
 exports.editarUsuario = async (req, res) => {
   const { id } = req.params;
