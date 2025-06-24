@@ -19,6 +19,8 @@ router.put("/estado/:ticket_id", auth.verify, ticketController.cambiarEstado);
 router.get("/", auth.verify, ticketController.listarTodos); // Listar todos
 router.get("/:usuario_id", auth.verify, ticketController.listarPorUsuario); // Listar por usuario
 
+router.get("/ejecutor/:ejecutor_id", ticketController.listarPorEjecutor);
+
 router.get("/descargar/:ticket_id", (req, res) => {
   const db = require("../models/db");
   const ticketId = req.params.ticket_id;

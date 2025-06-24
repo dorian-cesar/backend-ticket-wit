@@ -302,3 +302,60 @@ exports.listarPorUsuario = (req, res) => {
     });
   });
 };
+
+exports.listarPorEjecutor = (req, res) => {
+  const ejecutor_id = req.params.ejecutor_id;
+
+  const queryTickets = `
+    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+           t.fecha_creacion, a.nombre AS area,
+           ta.nombre AS tipo_atencion,
+           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
+    FROM tickets t
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users s ON t.solicitante_id = s.id
+    WHERE t.ejecutor_id = ?
+    ORDER BY t.fecha_creacion DESC
+  `;
+
+  db.query(queryTickets, [ejecutor_id], (err, tickets) => {
+    if (err) return res.status(500).json({ message: "Error al listar tickets del ejecutor", error: err });
+
+    if (tickets.length === 0) return res.json([]); // sin tickets
+
+    const ticketIds = tickets.map(t => t.id);
+
+    const queryHistorial = `
+      SELECT h.ticket_id, h.estado_anterior, h.nuevo_estado, h.observacion, h.fecha,
+             u.nombre AS usuario_cambio
+      FROM historial_estado h
+      JOIN users u ON h.usuario_id = u.id
+      WHERE h.ticket_id IN (?)
+      ORDER BY h.fecha ASC
+    `;
+
+    db.query(queryHistorial, [ticketIds], (err2, historiales) => {
+      if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
+
+      const historialPorTicket = {};
+      historiales.forEach(h => {
+        if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
+        historialPorTicket[h.ticket_id].push({
+          estado_anterior: h.estado_anterior,
+          nuevo_estado: h.nuevo_estado,
+          observacion: h.observacion,
+          fecha: h.fecha,
+          usuario_cambio: h.usuario_cambio
+        });
+      });
+
+      const respuesta = tickets.map(ticket => ({
+        ...ticket,
+        historial: historialPorTicket[ticket.id] || []
+      }));
+
+      res.json(respuesta);
+    });
+  });
+};
