@@ -347,7 +347,7 @@ exports.listarPorUsuario = (req, res) => {
   const usuario_id = req.params.usuario_id;
 
   const queryTickets = `
-    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
            t.fecha_creacion, a.nombre AS area,
            ta.nombre AS tipo_atencion, e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
     FROM tickets t
@@ -367,7 +367,7 @@ exports.listarPorUsuario = (req, res) => {
     const ticketIds = tickets.map(t => t.id);
 
     const queryHistorial = `
-      SELECT h.ticket_id, h.estado_anterior, h.nuevo_estado, h.observacion, h.fecha,
+      SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
              u.nombre AS usuario_cambio
       FROM historial_estado h
       JOIN users u ON h.usuario_id = u.id
