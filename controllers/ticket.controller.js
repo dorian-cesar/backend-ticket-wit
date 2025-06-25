@@ -453,13 +453,15 @@ exports.listarPorEjecutor = (req, res) => {
 };
 
 
+
+
 exports.autorizarORechazarTicket = (req, res) => {
   const { ticket_id } = req.params;
-  const { accion, observacion, usuario_id } = req.body; // accion: 'autorizar' o 'rechazar'
+  const { id_estado, observacion, usuario_id } = req.body; // id_estado: 2 (autorizado), 9 (rechazado)
 
-  // Validar acción
-  if (!["autorizar", "rechazar"].includes(accion)) {
-    return res.status(400).json({ message: "Acción inválida" });
+  // Validar id_estado
+  if (![2, 9].includes(id_estado)) {
+    return res.status(400).json({ message: "id_estado inválido. Solo se permite 2 (autorizar) o 9 (rechazar)" });
   }
 
   // Obtener datos actuales del ticket
@@ -488,13 +490,10 @@ exports.autorizarORechazarTicket = (req, res) => {
       nombre_ejecutor
     } = results[0];
 
-    // Determinar nuevo estado
-    const nuevo_estado = accion === "autorizar" ? 2 : 9;
-
     // Actualizar el ticket con el nuevo estado
     db.query(
       "UPDATE tickets SET id_estado = ? WHERE id = ?",
-      [nuevo_estado, ticket_id],
+      [id_estado, ticket_id],
       (err2) => {
         if (err2) {
           return res.status(500).json({ message: "Error al actualizar ticket" });
@@ -510,7 +509,7 @@ exports.autorizarORechazarTicket = (req, res) => {
 
         db.query(
           insertHistorial,
-          [ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id],
+          [ticket_id, estado_anterior, id_estado, observacion, usuario_id],
           (err3) => {
             if (err3) {
               return res.status(500).json({ message: "Error al registrar historial" });
@@ -527,7 +526,7 @@ exports.autorizarORechazarTicket = (req, res) => {
 
             let correoDestino, nombreDestino, asunto, cuerpoHtml;
 
-            if (accion === "rechazar") {
+            if (id_estado === 9) { // rechazado
               correoDestino = email_solicitante;
               nombreDestino = nombre_solicitante;
               asunto = `Ticket #${ticket_id} rechazado`;
@@ -537,7 +536,7 @@ exports.autorizarORechazarTicket = (req, res) => {
                 <p><strong>Motivo:</strong> ${observacion}</p>
                 <p>Ticket: #${ticket_id}</p>
               `;
-            } else {
+            } else if (id_estado === 2) { // autorizado
               correoDestino = email_ejecutor;
               nombreDestino = nombre_ejecutor;
               asunto = `Ticket #${ticket_id} autorizado y asignado`;
@@ -562,7 +561,7 @@ exports.autorizarORechazarTicket = (req, res) => {
               }
 
               res.json({
-                message: `Ticket ${accion === "autorizar" ? "autorizado" : "rechazado"} correctamente`,
+                message: `Ticket ${id_estado === 2 ? "autorizado" : "rechazado"} correctamente`,
                 ticket_id
               });
             });
@@ -571,7 +570,8 @@ exports.autorizarORechazarTicket = (req, res) => {
       }
     );
   });
-}
+};
+
 
 
 
