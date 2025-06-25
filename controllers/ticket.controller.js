@@ -229,6 +229,7 @@ exports.editarTicket = (req, res) => {
   });
 };
 
+/*
 exports.cambiarEstado = (req, res) => {
   const { ticket_id } = req.params;
   const { nuevo_estado, observacion, usuario_id } = req.body;
@@ -311,6 +312,7 @@ exports.cambiarEstado = (req, res) => {
     });
   });
 };
+*/
 
 exports.listarTodos = (req, res) => {
   const query = `
@@ -570,3 +572,114 @@ exports.autorizarORechazarTicket = (req, res) => {
     );
   });
 }
+
+
+
+exports.cambiarEstado = (req, res) => {
+  const { ticket_id } = req.params;
+  const { id_nuevo_estado, observacion, usuario_id } = req.body;
+
+  // Paso 1: Verificar que el usuario es el ejecutor y obtener solicitante_id e id_estado actual
+  const queryVerificacion = `
+    SELECT id_estado AS id_estado_anterior, ejecutor_id, solicitante_id
+    FROM tickets
+    WHERE id = ?
+  `;
+
+  db.query(queryVerificacion, [ticket_id], (err, results) => {
+    if (err || results.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
+
+    const { id_estado_anterior, ejecutor_id, solicitante_id } = results[0];
+
+    if (usuario_id != ejecutor_id) {
+      return res.status(403).json({
+        message: "No tienes permisos para cambiar el estado de este ticket. Solo el ejecutor asignado puede hacerlo."
+      });
+    }
+
+    // Paso 2: Actualizar el estado en el ticket
+    db.query(
+      "UPDATE tickets SET id_estado = ? WHERE id = ?",
+      [id_nuevo_estado, ticket_id],
+      (err2) => {
+        if (err2) {
+          return res.status(500).json({ message: "Error al actualizar el estado del ticket" });
+        }
+
+        // Paso 3: Insertar en historial_estado
+        const queryHistorial = `
+          INSERT INTO historial_estado (ticket_id, id_estado_anterior, id_nuevo_estado, observacion, usuario_id)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+
+        db.query(
+          queryHistorial,
+          [ticket_id, id_estado_anterior, id_nuevo_estado, observacion, usuario_id],
+          (err3) => {
+            if (err3) {
+              return res.status(500).json({ message: "Error al registrar el historial de estado" });
+            }
+
+            // Paso 4: Obtener email del solicitante
+            const queryEmailSolicitante = `
+              SELECT email, nombre FROM users WHERE id = ?
+            `;
+            db.query(queryEmailSolicitante, [solicitante_id], (err4, userRows) => {
+              if (err4 || userRows.length === 0) {
+                return res.status(500).json({ message: "Error al obtener datos del solicitante" });
+              }
+
+              const { email: solicitanteEmail, nombre: solicitanteNombre } = userRows[0];
+
+              // Paso 5: Obtener nombre del nuevo estado
+              const queryEstadoNombre = `
+                SELECT nombre FROM estados_ticket WHERE id = ?
+              `;
+              db.query(queryEstadoNombre, [id_nuevo_estado], (err5, estadoRows) => {
+                const nombreEstado = (!err5 && estadoRows.length > 0)
+                  ? estadoRows[0].nombre
+                  : `Estado ID ${id_nuevo_estado}`;
+
+                // Paso 6: Enviar correo al solicitante
+                const transporter = nodemailer.createTransport({
+                  service: "gmail",
+                  auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
+                  }
+                });
+
+                const mailOptions = {
+                  from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+                  to: solicitanteEmail,
+                  subject: `Actualización de estado del Ticket #${ticket_id}`,
+                  html: `
+                    <p>Hola ${solicitanteNombre},</p>
+                    <p>El estado de tu ticket <strong>#${ticket_id}</strong> ha sido actualizado.</p>
+                    <p><strong>Nuevo estado:</strong> ${nombreEstado}</p>
+                    <p><strong>Observación:</strong> ${observacion}</p>
+                    <p>Revisa el sistema para más información <a href="https://mesa-de-ayuda.dev-wit.com/">aquí</a>.</p>
+                  `
+                };
+
+                transporter.sendMail(mailOptions, (error, info) => {
+                  if (error) {
+                    console.error("Error al enviar el correo:", error);
+                    // No se interrumpe la respuesta si falla el correo
+                  }
+
+                  res.json({
+                    message: "Estado actualizado y correo enviado al solicitante.",
+                    nuevo_estado: id_nuevo_estado
+                  });
+                });
+              });
+            });
+          }
+        );
+      }
+    );
+  });
+};
