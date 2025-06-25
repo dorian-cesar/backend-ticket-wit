@@ -10,6 +10,7 @@ const areaRoutes =require("./routes/area.routes");
 const tipoAtencionRoutes= require("./routes/tipo_atencion.routes");
 const emailRoutes = require("./routes/email.routes"); // ✅
 const estadoRoutes = require("./routes/estado.routes");
+const actividadRoutes = require('./routes/actividad.routes');
 
 const app = express();
 app.use(cors());
@@ -23,6 +24,7 @@ app.use("/api/users", userRoutes); // ✅ AGREGADO
 app.use("/api/areas", areaRoutes);
 app.use("/api/tipos", tipoAtencionRoutes);
 app.use("/api/email", emailRoutes); // ✅
+app.use('/api/actividades', actividadRoutes);
 
 app.use("/api/estados", estadoRoutes);
 app.use(express.static("public"));
