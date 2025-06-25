@@ -449,3 +449,124 @@ exports.listarPorEjecutor = (req, res) => {
     });
   });
 };
+
+
+exports.autorizarORechazarTicket = (req, res) => {
+  const { ticket_id } = req.params;
+  const { accion, observacion, usuario_id } = req.body; // accion: 'autorizar' o 'rechazar'
+
+  // Validar acción
+  if (!["autorizar", "rechazar"].includes(accion)) {
+    return res.status(400).json({ message: "Acción inválida" });
+  }
+
+  // Obtener datos actuales del ticket
+  const queryDatos = `
+    SELECT t.id_estado AS estado_anterior, t.solicitante_id, t.ejecutor_id,
+           us.email AS email_solicitante, us.nombre AS nombre_solicitante,
+           ue.email AS email_ejecutor, ue.nombre AS nombre_ejecutor
+    FROM tickets t
+    JOIN users us ON t.solicitante_id = us.id
+    JOIN users ue ON t.ejecutor_id = ue.id
+    WHERE t.id = ?
+  `;
+
+  db.query(queryDatos, [ticket_id], (err, results) => {
+    if (err || results.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
+
+    const {
+      estado_anterior,
+      solicitante_id,
+      ejecutor_id,
+      email_solicitante,
+      nombre_solicitante,
+      email_ejecutor,
+      nombre_ejecutor
+    } = results[0];
+
+    // Determinar nuevo estado
+    const nuevo_estado = accion === "autorizar" ? 2 : 9;
+
+    // Actualizar el ticket con el nuevo estado
+    db.query(
+      "UPDATE tickets SET id_estado = ? WHERE id = ?",
+      [nuevo_estado, ticket_id],
+      (err2) => {
+        if (err2) {
+          return res.status(500).json({ message: "Error al actualizar ticket" });
+        }
+
+        // Registrar en historial
+        const insertHistorial = `
+          INSERT INTO historial_estado (
+            ticket_id, id_estado_anterior, id_nuevo_estado,
+            observacion, usuario_id
+          ) VALUES (?, ?, ?, ?, ?)
+        `;
+
+        db.query(
+          insertHistorial,
+          [ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id],
+          (err3) => {
+            if (err3) {
+              return res.status(500).json({ message: "Error al registrar historial" });
+            }
+
+            // Enviar correo
+            const transporter = nodemailer.createTransport({
+              service: "gmail",
+              auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+              }
+            });
+
+            let correoDestino, nombreDestino, asunto, cuerpoHtml;
+
+            if (accion === "rechazar") {
+              correoDestino = email_solicitante;
+              nombreDestino = nombre_solicitante;
+              asunto = `Ticket #${ticket_id} rechazado`;
+              cuerpoHtml = `
+                <p>Hola ${nombreDestino},</p>
+                <p>Su solicitud fue <strong>rechazada</strong>.</p>
+                <p><strong>Motivo:</strong> ${observacion}</p>
+                <p>Ticket: #${ticket_id}</p>
+              `;
+            } else {
+              correoDestino = email_ejecutor;
+              nombreDestino = nombre_ejecutor;
+              asunto = `Ticket #${ticket_id} autorizado y asignado`;
+              cuerpoHtml = `
+                <p>Hola ${nombreDestino},</p>
+                <p>Se le ha asignado un nuevo ticket para atención.</p>
+                <p><strong>Ticket:</strong> #${ticket_id}</p>
+                <p>Revise el sistema para más información.</p>
+              `;
+            }
+
+            const mailOptions = {
+              from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+              to: correoDestino,
+              subject: asunto,
+              html: cuerpoHtml
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+              if (error) {
+                console.error("Error al enviar correo:", error);
+              }
+
+              res.json({
+                message: `Ticket ${accion === "autorizar" ? "autorizado" : "rechazado"} correctamente`,
+                ticket_id
+              });
+            });
+          }
+        );
+      }
+    );
+  });
+}
