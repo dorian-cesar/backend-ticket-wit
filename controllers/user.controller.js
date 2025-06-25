@@ -2,18 +2,18 @@ const db = require("../models/db");
 const bcrypt = require("bcrypt");
 
 exports.listarUsuarios = (req, res) => {
-  db.query("SELECT id, nombre, email, rol FROM users", (err, results) => {
+  db.query("SELECT id, nombre, email, rol , id_jefatura FROM users", (err, results) => {
     if (err) return res.status(500).json({ error: "Error al listar usuarios" });
     res.json(results);
   });
 };
 
 exports.crearUsuario = (req, res) => {
-  const { nombre, email, password, rol } = req.body;
+  const { nombre, email, password, rol, id_jefatura } = req.body;
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) return res.status(500).json({ error: "Error al encriptar contraseña" });
-    db.query("INSERT INTO users (nombre, email, password, rol) VALUES (?, ?, ?, ?)",
-      [nombre, email, hash, rol], (err2) => {
+    db.query("INSERT INTO users (nombre, email, password, rol, id_jefatura) VALUES (?, ?, ?, ?,?)",
+      [nombre, email, hash, rol, id_jefatura], (err2) => {
         if (err2) return res.status(500).json({ error: "Error al crear usuario" });
         res.json({ message: "Usuario creado" });
       });

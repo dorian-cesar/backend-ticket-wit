@@ -4,7 +4,7 @@ const db = require("../models/db");
 
 const nodemailer = require("nodemailer");
 //const db = require("../db"); // Ajusta si tu conexión está en otro archivo
-
+/*
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
@@ -87,6 +87,101 @@ exports.crearTicket = (req, res) => {
     });
   });
 };
+*/
+
+
+exports.crearTicket = (req, res) => {
+  const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
+  const archivo_pdf = req.file ? req.file.filename : null;
+
+  // Paso 1: obtener ejecutor_id desde tipo_atencion
+  const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
+  db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
+    if (err || rows.length === 0) {
+      return res.status(400).json({ message: "Error al obtener ejecutor_id desde tipo_atencion" });
+    }
+
+    const ejecutor_id = rows[0].ejecutor_id;
+
+    // Paso 2: obtener id_jefatura, nombre y correo desde el solicitante
+    const queryJefatura = `
+      SELECT j.id AS id_jefatura, j.email AS email_jefatura, j.nombre AS nombre_jefatura
+      FROM users s
+      JOIN users j ON s.id_jefatura = j.id
+      WHERE s.id = ?
+    `;
+
+    db.query(queryJefatura, [solicitante_id], (err2, jefaturaRows) => {
+      if (err2 || jefaturaRows.length === 0) {
+        return res.status(400).json({ message: "No se encontró jefatura para el solicitante" });
+      }
+
+      const { id_jefatura, email_jefatura, nombre_jefatura } = jefaturaRows[0];
+
+      // Paso 3: insertar el ticket (sin id_estado, usará valor por defecto)
+      const insertTicket = `
+        INSERT INTO tickets (
+          solicitante_id, area_id, tipo_atencion_id,
+          ejecutor_id, id_jefatura, observaciones, archivo_pdf
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        solicitante_id,
+        area_id,
+        tipo_atencion_id,
+        ejecutor_id,
+        id_jefatura,
+        observaciones,
+        archivo_pdf
+      ];
+
+      db.query(insertTicket, values, (err3, result) => {
+        if (err3) {
+          return res.status(500).json({ message: "Error al crear ticket", error: err3 });
+        }
+
+        const ticketId = result.insertId;
+
+        // Paso 4: enviar correo a la jefatura
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        const mailOptions = {
+          from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+          to: email_jefatura,
+          subject: `Nuevo ticket generado para su supervisión (Ticket #${ticketId})`,
+          html: `
+            <p>Hola ${nombre_jefatura},</p>
+            <p>Se ha generado un nuevo ticket desde su equipo.</p>
+            <p><strong>Número de Ticket:</strong> ${ticketId}</p>
+            <p><strong>Observaciones:</strong> ${observaciones}</p>
+            <p>Revisa el sistema para más información: <a href="https://mesa-de-ayuda.dev-wit.com/">Ver ticket</a></p>
+          `
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error("Error al enviar correo a jefatura:", error);
+          } else {
+            console.log("Correo enviado a jefatura:", info.response);
+          }
+
+          res.json({
+            message: "Ticket creado correctamente y correo enviado a la jefatura.",
+            ticketId
+          });
+        });
+      });
+    });
+  });
+};
+
 
 
 exports.editarTicket = (req, res) => {
