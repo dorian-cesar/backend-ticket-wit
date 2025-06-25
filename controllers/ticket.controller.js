@@ -453,8 +453,6 @@ exports.listarPorEjecutor = (req, res) => {
 };
 
 
-
-
 exports.autorizarORechazarTicket = (req, res) => {
   const { ticket_id } = req.params;
   const { id_estado, observacion, usuario_id } = req.body; // id_estado: 2 (autorizado), 9 (rechazado)
@@ -571,8 +569,6 @@ exports.autorizarORechazarTicket = (req, res) => {
     );
   });
 };
-
-
 
 
 exports.cambiarEstado = (req, res) => {
@@ -692,7 +688,8 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
            t.area_id, a.nombre AS area,
            t.tipo_atencion_id, ta.nombre AS tipo_atencion,
            t.observaciones, t.fecha_creacion, t.id_estado,
-           t.ejecutor_id, e.nombre AS nombre_ejecutor
+           t.ejecutor_id, e.nombre AS nombre_ejecutor,
+           t.archivo_pdf
     FROM tickets t
     JOIN users u ON t.solicitante_id = u.id
     JOIN users j ON u.id_jefatura = j.id
