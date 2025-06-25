@@ -88,8 +88,6 @@ exports.crearTicket = (req, res) => {
   });
 };
 */
-
-
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
@@ -182,8 +180,6 @@ exports.crearTicket = (req, res) => {
   });
 };
 
-
-
 exports.editarTicket = (req, res) => {
   const ticketId = req.params.id;
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
@@ -232,9 +228,6 @@ exports.editarTicket = (req, res) => {
     });
   });
 };
-
-
-
 
 exports.cambiarEstado = (req, res) => {
   const { ticket_id } = req.params;
@@ -319,8 +312,6 @@ exports.cambiarEstado = (req, res) => {
   });
 };
 
-
-
 exports.listarTodos = (req, res) => {
   const query = `
     SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
@@ -383,8 +374,8 @@ exports.listarPorUsuario = (req, res) => {
       historiales.forEach(h => {
         if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
         historialPorTicket[h.ticket_id].push({
-          estado_anterior: h.estado_anterior,
-          nuevo_estado: h.nuevo_estado,
+          estado_anterior: h.id_estado_anterior,
+          nuevo_estado: h.id_nuevo_estado,
           observacion: h.observacion,
           fecha: h.fecha,
           usuario_cambio: h.usuario_cambio
@@ -406,7 +397,7 @@ exports.listarPorEjecutor = (req, res) => {
   const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
            t.fecha_creacion, a.nombre AS area,
            ta.nombre AS tipo_atencion,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
@@ -426,7 +417,7 @@ exports.listarPorEjecutor = (req, res) => {
     const ticketIds = tickets.map(t => t.id);
 
     const queryHistorial = `
-      SELECT h.ticket_id, h.estado_anterior, h.nuevo_estado, h.observacion, h.fecha,
+      SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
              u.nombre AS usuario_cambio
       FROM historial_estado h
       JOIN users u ON h.usuario_id = u.id
@@ -441,8 +432,8 @@ exports.listarPorEjecutor = (req, res) => {
       historiales.forEach(h => {
         if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
         historialPorTicket[h.ticket_id].push({
-          estado_anterior: h.estado_anterior,
-          nuevo_estado: h.nuevo_estado,
+          estado_anterior: h.id_estado_anterior,
+          nuevo_estado: h.id_nuevo_estado,
           observacion: h.observacion,
           fecha: h.fecha,
           usuario_cambio: h.usuario_cambio
