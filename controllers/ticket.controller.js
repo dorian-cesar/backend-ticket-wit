@@ -683,3 +683,29 @@ exports.cambiarEstado = (req, res) => {
     );
   });
 };
+
+exports.ticketsPorJefaturaPendientes = (req, res) => {
+  const { id_jefatura } = req.params;
+
+  const query = `
+    SELECT t.id, t.solicitante_id, u.nombre AS nombre_solicitante,
+           t.area_id, a.nombre AS area,
+           t.tipo_atencion_id, ta.nombre AS tipo_atencion,
+           t.observaciones, t.fecha_creacion, t.id_estado,
+           t.ejecutor_id, e.nombre AS nombre_ejecutor
+    FROM tickets t
+    JOIN users u ON t.solicitante_id = u.id
+    JOIN users j ON u.id_jefatura = j.id
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users e ON t.ejecutor_id = e.id
+    WHERE j.id = ? AND t.id_estado = 1
+    ORDER BY t.fecha_creacion DESC
+  `;
+
+  db.query(query, [id_jefatura], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener tickets pendientes', detalle: err });
+    res.json(rows);
+  });
+};
+

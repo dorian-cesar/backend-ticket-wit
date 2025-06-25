@@ -21,6 +21,9 @@ router.get("/:usuario_id", auth.verify, ticketController.listarPorUsuario); // L
 
 router.get("/ejecutor/:ejecutor_id", ticketController.listarPorEjecutor);
 
+router.get('/pendientes/jefatura/:id_jefatura', auth.verify,ticketController.ticketsPorJefaturaPendientes);
+
+
 router.put("/autorizar-rechazar/:ticket_id",auth.verify, ticketController.autorizarORechazarTicket);
 
 router.get("/descargar/:ticket_id", (req, res) => {
