@@ -177,7 +177,7 @@ exports.listarPorUsuario = (req, res) => {
            t.fecha_creacion, a.nombre AS area,
            ta.nombre AS tipo_atencion,
            e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS tipo_atencion_cierre,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
            t.necesita_despacho, t.detalles_despacho, t.archivo_solucion
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
@@ -238,10 +238,10 @@ exports.listarPorEjecutor = (req, res) => {
 
   const queryTickets = `
     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
            t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
            a.nombre AS area,
-           ta.nombre AS tipo_atencion_nombre,
+           ta.nombre AS tipo_atencion,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
@@ -673,9 +673,11 @@ exports.generarInformePDF = (req, res) => {
       const doc = new PDFDocument({ margin: 50 });
       const fileName = `informe_ticket_${ticket_id}.pdf`;
       const filePath = path.join("uploads", fileName);
+      const writeStream = fs.createWriteStream(filePath);
 
-      doc.pipe(fs.createWriteStream(filePath));
+      doc.pipe(writeStream);
 
+      // === CONTENIDO PDF ===
       doc.fontSize(20).fillColor('#0055A5').text(`Informe de Ticket #${ticket_id}`, { align: 'center' });
       doc.moveDown();
 
@@ -716,10 +718,27 @@ exports.generarInformePDF = (req, res) => {
 
       doc.end();
 
-      doc.on('finish', () => {
-        res.download(filePath, fileName);
+      // 🟢 Esperar a que el archivo se termine de escribir
+      writeStream.on('finish', () => {
+        fs.access(filePath, fs.constants.F_OK, (err3) => {
+          if (err3) {
+            return res.status(500).json({ message: "Error al generar el informe PDF" });
+          }
+          res.download(filePath, fileName, (err4) => {
+            if (err4) {
+              console.error("Error al descargar el archivo:", err4);
+              return res.status(500).json({ message: "Error al enviar el archivo PDF" });
+            }
+          });
+        });
+      });
+
+      writeStream.on('error', (err) => {
+        console.error("Error al escribir el archivo:", err);
+        res.status(500).json({ message: "Error al generar el archivo PDF" });
       });
     });
   });
 };
+
 
