@@ -1,93 +1,7 @@
 const db = require("../models/db");
 
-
-
 const nodemailer = require("nodemailer");
-//const db = require("../db"); // Ajusta si tu conexión está en otro archivo
-/*
-exports.crearTicket = (req, res) => {
-  const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
-  const archivo_pdf = req.file ? req.file.filename : null;
 
-  // Paso 1: obtener el ejecutor_id asociado al tipo_atencion_id
-  const queryEjecutor = "SELECT ejecutor_id FROM tipo_atencion WHERE id = ?";
-
-  db.query(queryEjecutor, [tipo_atencion_id], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ message: "Error al consultar tipo de atención", error: err });
-    }
-
-    if (!rows || rows.length === 0) {
-      return res.status(400).json({ message: "El tipo_atencion_id no existe o no tiene ejecutor asociado." });
-    }
-
-    const ejecutor_id = rows[0].ejecutor_id;
-
-    // Paso 2: obtener el email del ejecutor
-    const queryEmail = "SELECT email, nombre FROM users WHERE id = ?";
-    db.query(queryEmail, [ejecutor_id], (err2, userRows) => {
-      if (err2) {
-        return res.status(500).json({ message: "Error al consultar usuario ejecutor", error: err2 });
-      }
-
-      if (!userRows || userRows.length === 0) {
-        return res.status(400).json({ message: "No se encontró usuario ejecutor." });
-      }
-
-      const { email: ejecutorEmail, nombre: ejecutorNombre } = userRows[0];
-
-      // Paso 3: insertar el ticket
-      const insertTicket = `
-        INSERT INTO tickets (solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-
-      db.query(insertTicket, [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, archivo_pdf], (err3, result) => {
-        if (err3) {
-          return res.status(500).json({ message: "Error al crear ticket", error: err3 });
-        }
-
-        // Paso 4: enviar correo al ejecutor
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-          }
-        });
-
-        const ticketId = result.insertId;
-
-        const mailOptions = {
-          from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
-          to: ejecutorEmail,
-          subject: `Nuevo ticket asignado (Ticket #${ticketId})`,
-          html: `
-    <p>Hola ${ejecutorNombre},</p>
-    <p>Se te ha asignado un nuevo ticket de atención.</p>
-    <p><strong>Número de Ticket:</strong> ${ticketId}</p>
-    <p><strong>Observaciones:</strong> ${observaciones}</p>
-    <p>Revisa el sistema para más información <a href="https://soporte.dev-wit.com/">aquí</a>.</p>
-  `
-        };
-
-        transporter.sendMail(mailOptions, (error, info) => {
-          if (error) {
-            console.error("Error al enviar el correo:", error);
-          } else {
-            console.log("Correo enviado: " + info.response);
-          }
-
-          res.json({
-            message: "Ticket creado correctamente y correo enviado al ejecutor.",
-            ticketId: result.insertId
-          });
-        });
-      });
-    });
-  });
-};
-*/
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
@@ -228,91 +142,6 @@ exports.editarTicket = (req, res) => {
     });
   });
 };
-
-/*
-exports.cambiarEstado = (req, res) => {
-  const { ticket_id } = req.params;
-  const { nuevo_estado, observacion, usuario_id } = req.body;
-
-  // Paso 1: Verificar que el usuario es el ejecutor y obtener solicitante_id
-  const queryVerificacion = "SELECT estado, ejecutor_id, solicitante_id FROM tickets WHERE id = ?";
-
-  db.query(queryVerificacion, [ticket_id], (err, results) => {
-    if (err || results.length === 0) {
-      return res.status(404).json({ message: "Ticket no encontrado" });
-    }
-
-    const { estado: estado_anterior, ejecutor_id, solicitante_id } = results[0];
-
-    if (usuario_id != ejecutor_id) {
-      return res.status(403).json({
-        message: "No tienes permisos para cambiar el estado de este ticket. Solo el ejecutor asignado puede hacerlo."
-      });
-    }
-
-    // Paso 2: Actualizar el estado del ticket
-    db.query("UPDATE tickets SET estado = ? WHERE id = ?", [nuevo_estado, ticket_id], (err2) => {
-      if (err2) {
-        return res.status(500).json({ message: "Error al actualizar el estado del ticket" });
-      }
-
-      // Paso 3: Insertar en historial
-      const queryHistorial = `
-        INSERT INTO historial_estado (ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-
-      db.query(queryHistorial, [ticket_id, estado_anterior, nuevo_estado, observacion, usuario_id], (err3) => {
-        if (err3) {
-          return res.status(500).json({ message: "Error al registrar el historial de estado" });
-        }
-
-        // Paso 4: Obtener correo del solicitante
-        const queryEmail = "SELECT email, nombre FROM users WHERE id = ?";
-        db.query(queryEmail, [solicitante_id], (err4, userRows) => {
-          if (err4 || userRows.length === 0) {
-            return res.status(500).json({ message: "Error al obtener datos del solicitante" });
-          }
-
-          const { email: solicitanteEmail, nombre: solicitanteNombre } = userRows[0];
-
-          // Paso 5: Enviar correo al solicitante
-          const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-              user: process.env.EMAIL_USER,
-              pass: process.env.EMAIL_PASS
-            }
-          });
-
-          const mailOptions = {
-            from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
-            to: solicitanteEmail,
-            subject: `Estado actualizado del ticket #${ticket_id}`,
-            html: `
-              <p>Hola ${solicitanteNombre},</p>
-              <p>El estado de tu ticket <strong>#${ticket_id}</strong> ha sido actualizado.</p>
-              <p><strong>Nuevo estado:</strong> ${nuevo_estado}</p>
-              <p><strong>Observación:</strong> ${observacion}</p>
-              <p>Revisa el sistema para más información <a href="https://soporte.dev-wit.com/">aqui</a>.</p>
-
-            `
-          };
-
-          transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-              console.error("Error al enviar correo:", error);
-              // No detenemos el flujo por error de correo
-            }
-            console.log(solicitanteEmail);
-            res.json({ message: "Estado actualizado y correo enviado al solicitante." });
-          });
-        });
-      });
-    });
-  });
-};
-*/
 
 exports.listarTodos = (req, res) => {
   const query = `
@@ -703,6 +532,79 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
   db.query(query, [id_jefatura], (err, rows) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tickets pendientes', detalle: err });
     res.json(rows);
+  });
+};
+
+exports.cerrarTicket = (req, res) => {
+  const { ticket_id } = req.params;
+  const {
+    id_actividad,
+    detalle_solucion,
+    tipo_atencion, // 'remota' o 'presencial'
+    necesita_despacho,
+    detalles_despacho,
+    usuario_id
+  } = req.body;
+
+  const archivo_solucion = req.file ? req.file.filename : null;
+
+  const getEstadoAnterior = "SELECT id_estado FROM tickets WHERE id = ?";
+
+  db.query(getEstadoAnterior, [ticket_id], (err, result) => {
+    if (err || result.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
+
+    const id_estado_anterior = result[0].id_estado;
+
+    const updateTicket = `
+      UPDATE tickets
+      SET id_actividad = ?,
+          detalle_solucion = ?,
+          tipo_atencion = ?,
+          necesita_despacho = ?,
+          detalles_despacho = ?,
+          archivo_solucion = ?,
+          id_estado = 6
+      WHERE id = ?
+    `;
+
+    db.query(
+      updateTicket,
+      [
+        id_actividad,
+        detalle_solucion,
+        tipo_atencion,
+        necesita_despacho,
+        necesita_despacho === 'si' ? detalles_despacho : null,
+        archivo_solucion,
+        ticket_id
+      ],
+      (err2) => {
+        if (err2) {
+          return res.status(500).json({ message: "Error al cerrar ticket" });
+        }
+
+        const insertHistorial = `
+          INSERT INTO historial_estado (
+            ticket_id, id_estado_anterior, id_nuevo_estado,
+            observacion, usuario_id, archivo_pdf
+          ) VALUES (?, ?, 6, ?, ?, ?)
+        `;
+
+        db.query(
+          insertHistorial,
+          [ticket_id, id_estado_anterior, detalle_solucion, usuario_id, archivo_solucion],
+          (err3) => {
+            if (err3) {
+              return res.status(500).json({ message: "Error al registrar historial" });
+            }
+
+            res.json({ message: "Ticket cerrado correctamente" });
+          }
+        );
+      }
+    );
   });
 };
 
