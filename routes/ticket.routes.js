@@ -13,7 +13,7 @@ const upload = multer({ storage });
 
 router.post("/crear",  upload.single("archivo_pdf"), ticketController.crearTicket);
 
-router.post('/:ticket_id/cerrar', upload.single('file'), ticketController.cerrarTicket);
+router.post('/:ticket_id/cerrar', upload.single('archivo_solucion'), ticketController.cerrarTicket);
 
 router.put("/editar/:id", upload.single("archivo_pdf"), ticketController.editarTicket);
 
