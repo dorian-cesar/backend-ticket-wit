@@ -2,6 +2,10 @@ const db = require("../models/db");
 
 const nodemailer = require("nodemailer");
 
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path'); 
+
 exports.crearTicket = (req, res) => {
   const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
@@ -171,7 +175,10 @@ exports.listarPorUsuario = (req, res) => {
   const queryTickets = `
     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
            t.fecha_creacion, a.nombre AS area,
-           ta.nombre AS tipo_atencion, e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
+           ta.nombre AS tipo_atencion,
+           e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS tipo_atencion_cierre,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
@@ -183,16 +190,19 @@ exports.listarPorUsuario = (req, res) => {
   db.query(queryTickets, [usuario_id], (err, tickets) => {
     if (err) return res.status(500).json({ message: "Error al listar tickets del usuario", error: err });
 
-    if (tickets.length === 0) return res.json([]); // sin tickets
+    if (tickets.length === 0) return res.json([]);
 
-    // Obtener los IDs de los tickets para traer los historiales en un solo query
     const ticketIds = tickets.map(t => t.id);
 
     const queryHistorial = `
       SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
-             u.nombre AS usuario_cambio
+             u.nombre AS usuario_cambio,
+             ea.nombre AS estado_anterior_nombre,
+             en.nombre AS estado_nuevo_nombre
       FROM historial_estado h
       JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
       WHERE h.ticket_id IN (?)
       ORDER BY h.fecha ASC
     `;
@@ -200,20 +210,18 @@ exports.listarPorUsuario = (req, res) => {
     db.query(queryHistorial, [ticketIds], (err2, historiales) => {
       if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
 
-      // Organizar historial por ticket_id
       const historialPorTicket = {};
       historiales.forEach(h => {
         if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
         historialPorTicket[h.ticket_id].push({
-          estado_anterior: h.id_estado_anterior,
-          nuevo_estado: h.id_nuevo_estado,
+          estado_anterior: h.estado_anterior_nombre || 'N/A',
+          nuevo_estado: h.estado_nuevo_nombre || 'N/A',
           observacion: h.observacion,
           fecha: h.fecha,
           usuario_cambio: h.usuario_cambio
         });
       });
 
-      // Agregar el historial a cada ticket
       const respuesta = tickets.map(ticket => ({
         ...ticket,
         historial: historialPorTicket[ticket.id] || []
@@ -224,13 +232,16 @@ exports.listarPorUsuario = (req, res) => {
   });
 };
 
+
 exports.listarPorEjecutor = (req, res) => {
   const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
-           t.fecha_creacion, a.nombre AS area,
-           ta.nombre AS tipo_atencion,
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           a.nombre AS area,
+           ta.nombre AS tipo_atencion_nombre,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
@@ -249,9 +260,13 @@ exports.listarPorEjecutor = (req, res) => {
 
     const queryHistorial = `
       SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
-             u.nombre AS usuario_cambio
+             u.nombre AS usuario_cambio,
+             ea.nombre AS estado_anterior_nombre,
+             en.nombre AS estado_nuevo_nombre
       FROM historial_estado h
       JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
       WHERE h.ticket_id IN (?)
       ORDER BY h.fecha ASC
     `;
@@ -263,8 +278,8 @@ exports.listarPorEjecutor = (req, res) => {
       historiales.forEach(h => {
         if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
         historialPorTicket[h.ticket_id].push({
-          estado_anterior: h.id_estado_anterior,
-          nuevo_estado: h.id_nuevo_estado,
+          estado_anterior: h.estado_anterior_nombre || 'N/A',
+          nuevo_estado: h.estado_nuevo_nombre || 'N/A',
           observacion: h.observacion,
           fecha: h.fecha,
           usuario_cambio: h.usuario_cambio
@@ -280,6 +295,7 @@ exports.listarPorEjecutor = (req, res) => {
     });
   });
 };
+
 
 
 exports.autorizarORechazarTicket = (req, res) => {
@@ -605,6 +621,105 @@ exports.cerrarTicket = (req, res) => {
         );
       }
     );
+  });
+};
+
+// controllers/ticket.controller.js
+
+const moment = require('moment');
+
+exports.generarInformePDF = (req, res) => {
+  const { ticket_id } = req.params;
+
+  const queryTicket = `
+    SELECT t.*, 
+           u.nombre AS solicitante_nombre, 
+           e.nombre AS ejecutor_nombre, 
+           a.nombre AS actividad_nombre,
+           ar.nombre AS area_nombre,
+           ta.nombre AS tipo_atencion_nombre
+    FROM tickets t
+    LEFT JOIN users u ON t.solicitante_id = u.id
+    LEFT JOIN users e ON t.ejecutor_id = e.id
+    LEFT JOIN actividad_realizada a ON t.id_actividad = a.id
+    LEFT JOIN areas ar ON t.area_id = ar.id
+    LEFT JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    WHERE t.id = ? AND t.id_estado = 6
+  `;
+
+  db.query(queryTicket, [ticket_id], (err, ticketResults) => {
+    if (err || ticketResults.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado o no está cerrado." });
+    }
+
+    const ticket = ticketResults[0];
+
+    const queryHistorial = `
+      SELECT h.*, u.nombre AS usuario_nombre, 
+             ea.nombre AS estado_anterior_nombre, 
+             en.nombre AS estado_nuevo_nombre
+      FROM historial_estado h
+      LEFT JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
+      WHERE h.ticket_id = ? ORDER BY h.fecha ASC
+    `;
+
+    db.query(queryHistorial, [ticket_id], (err2, historial) => {
+      if (err2) {
+        return res.status(500).json({ message: "Error al obtener historial" });
+      }
+
+      const doc = new PDFDocument({ margin: 50 });
+      const fileName = `informe_ticket_${ticket_id}.pdf`;
+      const filePath = path.join("uploads", fileName);
+
+      doc.pipe(fs.createWriteStream(filePath));
+
+      doc.fontSize(20).fillColor('#0055A5').text(`Informe de Ticket #${ticket_id}`, { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).fillColor('black');
+      doc.text(` Fecha de Creación: ${moment(ticket.fecha_creacion).format('DD-MM-YYYY')}`);
+      doc.text(` Solicitante: ${ticket.solicitante_nombre}`);
+      doc.text(` Ejecutor: ${ticket.ejecutor_nombre}`);
+      doc.text(` Área: ${ticket.area_nombre}`);
+      doc.text(` Tipo Atención: ${ticket.tipo_atencion_nombre}`);
+      doc.text(` Actividad Realizada: ${ticket.actividad_nombre || 'N/A'}`);
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('Detalle de la Solución:', { underline: true });
+      doc.font('Helvetica').text(ticket.detalle_solucion || 'N/A');
+      doc.moveDown();
+
+      doc.font('Helvetica-Bold').text('Tipo de Atención:', { continued: true });
+      doc.font('Helvetica').text(` ${ticket.tipo_atencion}`);
+
+      doc.font('Helvetica-Bold').text('¿Requiere despacho?:', { continued: true });
+      doc.font('Helvetica').text(` ${ticket.necesita_despacho}`);
+      if (ticket.necesita_despacho === 'si') {
+        doc.font('Helvetica-Bold').text('Detalles del despacho:', { continued: true });
+        doc.font('Helvetica').text(` ${ticket.detalles_despacho || 'N/A'}`);
+      }
+      doc.moveDown();
+
+      doc.fontSize(14).fillColor('#0055A5').text("Historial de Estados", { underline: true });
+      doc.fillColor('black');
+
+      historial.forEach(h => {
+        doc.moveDown(0.5);
+        doc.fontSize(12).text(` ${moment(h.fecha).format('DD-MM-YYYY HH:mm')}`);
+        doc.text(` Usuario: ${h.usuario_nombre}`);
+        doc.text(` Estado: ${h.estado_anterior_nombre} --> ${h.estado_nuevo_nombre}`);
+        doc.text(` Observación: ${h.observacion}`);
+      });
+
+      doc.end();
+
+      doc.on('finish', () => {
+        res.download(filePath, fileName);
+      });
+    });
   });
 };
 

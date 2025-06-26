@@ -56,4 +56,6 @@ router.get("/descargar/:ticket_id", (req, res) => {
   });
 });
 
+router.get("/informe/:ticket_id",  ticketController.generarInformePDF);
+
 module.exports = router;
