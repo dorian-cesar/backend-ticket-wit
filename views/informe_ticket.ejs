@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Ticket <%= ticket.id %></title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .title { text-align: center; color: #0055A5; font-size: 28px; margin-bottom: 20px; }
+    .card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .card h3 { margin-top: 0; color: #333; }
+    .historial { background: #f9f9f9; border-left: 5px solid #0055A5; padding: 10px; margin-bottom: 10px; }
+    .label { font-weight: bold; color: #555; }
+  </style>
+</head>
+<body>
+
+  <div class="title">Informe del Ticket #<%= ticket.id %></div>
+
+  <div class="card">
+    <h3>📄 Información General</h3>
+    <p><span class="label">Fecha de creación:</span> <%= fecha_creacion %></p>
+    <p><span class="label">Solicitante:</span> <%= ticket.solicitante_nombre %></p>
+    <p><span class="label">Ejecutor:</span> <%= ticket.ejecutor_nombre %></p>
+    <p><span class="label">Área:</span> <%= ticket.area_nombre %></p>
+    <p><span class="label">Tipo Atención:</span> <%= ticket.tipo_atencion_nombre %></p>
+    <p><span class="label">Actividad Realizada:</span> <%= ticket.actividad_nombre || 'N/A' %></p>
+  </div>
+
+  <div class="card">
+    <h3>🛠️ Detalle de la Solución</h3>
+    <p><%= ticket.detalle_solucion || 'N/A' %></p>
+  </div>
+
+  <div class="card">
+    <h3>📦 Información Adicional</h3>
+    <p><span class="label">Tipo Atención:</span> <%= ticket.tipo_atencion %></p>
+    <p><span class="label">¿Requiere despacho?:</span> <%= ticket.necesita_despacho %></p>
+    <% if (ticket.necesita_despacho === 'si') { %>
+      <p><span class="label">Detalles del despacho:</span> <%= ticket.detalles_despacho || 'N/A' %></p>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h3>📚 Historial de Estados</h3>
+    <% historial.forEach(h => { %>
+      <div class="historial">
+        <p><span class="label">Fecha:</span> <%= h.fecha_formateada %></p>
+        <p><span class="label">Usuario:</span> <%= h.usuario_nombre %></p>
+        <p><span class="label">Cambio:</span> <%= h.estado_anterior_nombre %> → <%= h.estado_nuevo_nombre %></p>
+        <p><span class="label">Observación:</span> <%= h.observacion || 'Sin observación' %></p>
+      </div>
+    <% }) %>
+  </div>
+
+</body>
+</html>
