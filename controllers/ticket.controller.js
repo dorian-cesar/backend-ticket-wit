@@ -550,7 +550,7 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
     res.json(rows);
   });
 };
-
+/*
 exports.cerrarTicket = (req, res) => {
   const { ticket_id } = req.params;
   const {
@@ -623,8 +623,134 @@ exports.cerrarTicket = (req, res) => {
     );
   });
 };
-
+*/
 // controllers/ticket.controller.js
+
+
+exports.cerrarTicket = (req, res) => {
+  const { ticket_id } = req.params;
+  const {
+    id_actividad,
+    detalle_solucion,
+    tipo_atencion, // 'remota' o 'presencial'
+    necesita_despacho,
+    detalles_despacho,
+    usuario_id
+  } = req.body;
+
+  const archivo_solucion = req.file ? req.file.filename : null;
+
+  const getTicketInfo = `
+    SELECT t.id_estado, t.solicitante_id, t.ejecutor_id,
+           us.email AS email_solicitante, us.nombre AS nombre_solicitante,
+           ue.email AS email_ejecutor, ue.nombre AS nombre_ejecutor
+    FROM tickets t
+    JOIN users us ON t.solicitante_id = us.id
+    JOIN users ue ON t.ejecutor_id = ue.id
+    WHERE t.id = ?
+  `;
+
+  db.query(getTicketInfo, [ticket_id], (err, result) => {
+    if (err || result.length === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado" });
+    }
+
+    const {
+      id_estado: id_estado_anterior,
+      email_solicitante,
+      nombre_solicitante,
+      email_ejecutor,
+      nombre_ejecutor
+    } = result[0];
+
+    const updateTicket = `
+      UPDATE tickets
+      SET id_actividad = ?,
+          detalle_solucion = ?,
+          tipo_atencion = ?,
+          necesita_despacho = ?,
+          detalles_despacho = ?,
+          archivo_solucion = ?,
+          id_estado = 6
+      WHERE id = ?
+    `;
+
+    db.query(
+      updateTicket,
+      [
+        id_actividad,
+        detalle_solucion,
+        tipo_atencion,
+        necesita_despacho,
+        necesita_despacho === 'si' ? detalles_despacho : null,
+        archivo_solucion,
+        ticket_id
+      ],
+      (err2) => {
+        if (err2) {
+          return res.status(500).json({ message: "Error al cerrar ticket" });
+        }
+
+        const insertHistorial = `
+          INSERT INTO historial_estado (
+            ticket_id, id_estado_anterior, id_nuevo_estado,
+            observacion, usuario_id, archivo_pdf
+          ) VALUES (?, ?, 6, ?, ?, ?)
+        `;
+
+        db.query(
+          insertHistorial,
+          [ticket_id, id_estado_anterior, detalle_solucion, usuario_id, archivo_solucion],
+          (err3) => {
+            if (err3) {
+              return res.status(500).json({ message: "Error al registrar historial" });
+            }
+
+            // 🔔 Enviar correo
+            const transporter = nodemailer.createTransport({
+              service: "gmail",
+              auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+              }
+            });
+
+            const asunto = `Ticket #${ticket_id} cerrado`;
+            const cuerpoHtml = `
+              <p>El ticket #${ticket_id} ha sido cerrado.</p>
+              <p><strong>Detalle de la solución:</strong> ${detalle_solucion}</p>
+              <p><strong>Tipo de atención:</strong> ${tipo_atencion}</p>
+              <p><strong>Requiere despacho:</strong> ${necesita_despacho}</p>
+              ${
+                necesita_despacho === 'si'
+                  ? `<p><strong>Detalles del despacho:</strong> ${detalles_despacho}</p>`
+                  : ""
+              }
+            `;
+
+            const mailOptions = {
+              from: `"Sistema de Soporte" <${process.env.EMAIL_USER}>`,
+              to: `${email_solicitante}, ${email_ejecutor}`,
+              subject: asunto,
+              html: cuerpoHtml
+            };
+            //console.log(email_solicitante);
+
+            transporter.sendMail(mailOptions, (err4) => {
+              if (err4) {
+                console.error("Error al enviar correo de cierre:", err4);
+                return res.status(500).json({ message: "Ticket cerrado pero error al enviar notificación" });
+              }
+
+              res.json({ message: "Ticket cerrado y notificación enviada correctamente" });
+            });
+          }
+        );
+      }
+    );
+  });
+};
+
 
 const moment = require('moment');
 
