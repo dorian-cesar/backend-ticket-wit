@@ -15,9 +15,9 @@ exports.listarTipos = (req, res) => {
 };
 
 exports.crearTipo = (req, res) => {
-  const { nombre, area_id, ejecutor_id } = req.body;
-  db.query("INSERT INTO tipo_atencion (nombre, area_id, ejecutor_id) VALUES (?, ?, ?)",
-    [nombre, area_id, ejecutor_id], (err) => {
+  const { nombre, area_id, ejecutor_id, categoria_id } = req.body;
+  db.query("INSERT INTO tipo_atencion (nombre, area_id, ejecutor_id, categoria_id ) VALUES (?, ?, ?, ?)",
+    [nombre, area_id, ejecutor_id, categoria_id], (err) => {
       if (err) return res.status(500).json({ error: "Error al crear tipo" });
       res.json({ message: "Tipo de atención creado" });
     });
@@ -25,9 +25,9 @@ exports.crearTipo = (req, res) => {
 
 exports.editarTipo = (req, res) => {
   const { id } = req.params;
-  const { nombre, area_id, ejecutor_id } = req.body;
-  db.query("UPDATE tipo_atencion SET nombre = ?, area_id = ?, ejecutor_id = ? WHERE id = ?",
-    [nombre, area_id, ejecutor_id, id], (err) => {
+  const { nombre, area_id, ejecutor_id, categoria_id } = req.body;
+  db.query("UPDATE tipo_atencion SET nombre = ?, area_id = ?, ejecutor_id = ?, categoria_id =? WHERE id = ?",
+    [nombre, area_id, ejecutor_id, categoria_id], (err) => {
       if (err) return res.status(500).json({ error: "Error al editar tipo" });
       res.json({ message: "Tipo de atención actualizado" });
     });
