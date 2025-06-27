@@ -152,18 +152,31 @@ exports.listarTodos = (req, res) => {
   // const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
-           a.nombre AS area,
-           ta.nombre AS tipo_atencion,
-           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
-    FROM tickets t
-    JOIN areas a ON t.area_id = a.id
-    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
-    JOIN users s ON t.solicitante_id = s.id
- 
-    ORDER BY t.fecha_creacion DESC
+    SELECT 
+  t.id, 
+  t.id_estado, 
+  es.nombre AS estado_nombre,
+  t.observaciones, 
+  t.archivo_pdf, 
+  t.fecha_creacion,
+  t.id_actividad, 
+  t.detalle_solucion, 
+  t.tipo_atencion AS modo_atencion,
+  t.necesita_despacho, 
+  t.detalles_despacho, 
+  t.archivo_solucion,
+  a.nombre AS area,
+  ta.nombre AS tipo_atencion,
+  s.nombre AS solicitante, 
+  s.email AS correo_solicitante, 
+  s.id AS id_solicitante
+FROM tickets t
+JOIN areas a ON t.area_id = a.id
+JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+JOIN users s ON t.solicitante_id = s.id
+LEFT JOIN estados_ticket es ON t.id_estado = es.id
+ORDER BY t.fecha_creacion DESC
+
   `;
 
   db.query(queryTickets,  (err, tickets) => {
