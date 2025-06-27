@@ -148,25 +148,68 @@ exports.editarTicket = (req, res) => {
 };
 
 exports.listarTodos = (req, res) => {
-  const query = `
-    SELECT t.id, t.estado, t.observaciones, t.archivo_pdf,
-           t.fecha_creacion, u.nombre AS solicitante, a.nombre AS area,
-           ta.nombre AS tipo_atencion, e.nombre AS ejecutor , e.email AS corre_ejecutor, e.id As id_ejecutor
+
+  // const ejecutor_id = req.params.ejecutor_id;
+
+  const queryTickets = `
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           a.nombre AS area,
+           ta.nombre AS tipo_atencion,
+           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
     FROM tickets t
-    JOIN users u ON t.solicitante_id = u.id
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
-    JOIN users e ON t.ejecutor_id = e.id
+    JOIN users s ON t.solicitante_id = s.id
+ 
     ORDER BY t.fecha_creacion DESC
   `;
 
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error al listar tickets:", err); // 👈 agrega esto
-      return res.status(500).json({ message: "Error al listar todos los tickets" });
-    }
-    res.json(results);
+  db.query(queryTickets,  (err, tickets) => {
+    if (err) return res.status(500).json({ message: "Error al listar tickets del ejecutor", error: err });
+
+    if (tickets.length === 0) return res.json([]); // sin tickets
+
+    const ticketIds = tickets.map(t => t.id);
+
+    const queryHistorial = `
+      SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
+             u.nombre AS usuario_cambio,
+             ea.nombre AS estado_anterior_nombre,
+             en.nombre AS estado_nuevo_nombre
+      FROM historial_estado h
+      JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
+      WHERE h.ticket_id IN (?)
+      ORDER BY h.fecha ASC
+    `;
+
+    db.query(queryHistorial, [ticketIds], (err2, historiales) => {
+      if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
+
+      const historialPorTicket = {};
+      historiales.forEach(h => {
+        if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
+        historialPorTicket[h.ticket_id].push({
+          estado_anterior: h.estado_anterior_nombre || 'N/A',
+          nuevo_estado: h.estado_nuevo_nombre || 'N/A',
+          observacion: h.observacion,
+          fecha: h.fecha,
+          usuario_cambio: h.usuario_cambio
+        });
+      });
+
+      const respuesta = tickets.map(ticket => ({
+        ...ticket,
+        historial: historialPorTicket[ticket.id] || []
+      }));
+
+      res.json(respuesta);
+    });
   });
+
 };
 
 exports.listarPorUsuario = (req, res) => {
@@ -526,33 +569,7 @@ exports.cambiarEstado = (req, res) => {
 };
 
 
-/*
-exports.ticketsPorJefaturaPendientes = (req, res) => {
-  const { id_jefatura } = req.params;
 
-  const query = `
-    SELECT t.id, t.solicitante_id, u.nombre AS nombre_solicitante,
-           t.area_id, a.nombre AS area,
-           t.tipo_atencion_id, ta.nombre AS tipo_atencion,
-           t.observaciones, t.fecha_creacion, t.id_estado,
-           t.ejecutor_id, e.nombre AS nombre_ejecutor,
-           t.archivo_pdf
-    FROM tickets t
-    JOIN users u ON t.solicitante_id = u.id
-    JOIN users j ON u.id_jefatura = j.id
-    JOIN areas a ON t.area_id = a.id
-    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
-    JOIN users e ON t.ejecutor_id = e.id
-    WHERE j.id = ? 
-    ORDER BY t.fecha_creacion DESC
-  `;
-
-  db.query(query, [id_jefatura], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener tickets pendientes', detalle: err });
-    res.json(rows);
-  });
-};
-*/
 
 exports.ticketsPorJefaturaPendientes = (req, res) => {
   const id_jefatura = req.params.id_jefatura;
