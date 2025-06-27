@@ -43,14 +43,14 @@ exports.borrarUsuario = (req, res) => {
 
 exports.editarUsuario = async (req, res) => {
   const { id } = req.params;
-  const { nombre, email, rol, password } = req.body;
+  const { nombre, email, rol, password, id_jefatura } = req.body;
 
   try {
     // Si viene nueva contraseña, la encriptamos y la actualizamos también
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 10);
       db.query(
-        "UPDATE users SET nombre = ?, email = ?, rol = ?, password = ? WHERE id = ?",
+        "UPDATE users SET nombre = ?, email = ?, rol = ?, password = ? , id_jefatura  WHERE id = ?",
         [nombre, email, rol, hashedPassword, id],
         (err) => {
           if (err) return res.status(500).json({ error: "Error al editar usuario con contraseña" });
@@ -60,7 +60,7 @@ exports.editarUsuario = async (req, res) => {
     } else {
       // Si no se incluye la contraseña, solo se actualizan los otros campos
       db.query(
-        "UPDATE users SET nombre = ?, email = ?, rol = ? WHERE id = ?",
+        "UPDATE users SET nombre = ?, email = ?, rol = ? , id_jefatura WHERE id = ?",
         [nombre, email, rol, id],
         (err) => {
           if (err) return res.status(500).json({ error: "Error al editar usuario" });
