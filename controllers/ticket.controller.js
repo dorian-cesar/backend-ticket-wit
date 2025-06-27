@@ -525,6 +525,8 @@ exports.cambiarEstado = (req, res) => {
   });
 };
 
+
+/*
 exports.ticketsPorJefaturaPendientes = (req, res) => {
   const { id_jefatura } = req.params;
 
@@ -541,7 +543,7 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users e ON t.ejecutor_id = e.id
-    WHERE j.id = ? AND t.id_estado = 1
+    WHERE j.id = ? 
     ORDER BY t.fecha_creacion DESC
   `;
 
@@ -550,81 +552,73 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
     res.json(rows);
   });
 };
-/*
-exports.cerrarTicket = (req, res) => {
-  const { ticket_id } = req.params;
-  const {
-    id_actividad,
-    detalle_solucion,
-    tipo_atencion, // 'remota' o 'presencial'
-    necesita_despacho,
-    detalles_despacho,
-    usuario_id
-  } = req.body;
+*/
 
-  const archivo_solucion = req.file ? req.file.filename : null;
+exports.ticketsPorJefaturaPendientes = (req, res) => {
+  const id_jefatura = req.params.id_jefatura;
 
-  const getEstadoAnterior = "SELECT id_estado FROM tickets WHERE id = ?";
+  const queryTickets = `
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           a.nombre AS area,
+           ta.nombre AS tipo_atencion,
+           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
+           e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
+    FROM tickets t
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users s ON t.solicitante_id = s.id
+    LEFT JOIN users e ON t.ejecutor_id = e.id
+    WHERE t.id_jefatura = ?
+    ORDER BY t.fecha_creacion DESC
+  `;
 
-  db.query(getEstadoAnterior, [ticket_id], (err, result) => {
-    if (err || result.length === 0) {
-      return res.status(404).json({ message: "Ticket no encontrado" });
-    }
+  db.query(queryTickets, [id_jefatura], (err, tickets) => {
+    if (err) return res.status(500).json({ message: "Error al listar tickets por jefatura", error: err });
 
-    const id_estado_anterior = result[0].id_estado;
+    if (tickets.length === 0) return res.json([]); // sin tickets
 
-    const updateTicket = `
-      UPDATE tickets
-      SET id_actividad = ?,
-          detalle_solucion = ?,
-          tipo_atencion = ?,
-          necesita_despacho = ?,
-          detalles_despacho = ?,
-          archivo_solucion = ?,
-          id_estado = 6
-      WHERE id = ?
+    const ticketIds = tickets.map(t => t.id);
+
+    const queryHistorial = `
+      SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
+             u.nombre AS usuario_cambio,
+             ea.nombre AS estado_anterior_nombre,
+             en.nombre AS estado_nuevo_nombre
+      FROM historial_estado h
+      JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
+      WHERE h.ticket_id IN (?)
+      ORDER BY h.fecha ASC
     `;
 
-    db.query(
-      updateTicket,
-      [
-        id_actividad,
-        detalle_solucion,
-        tipo_atencion,
-        necesita_despacho,
-        necesita_despacho === 'si' ? detalles_despacho : null,
-        archivo_solucion,
-        ticket_id
-      ],
-      (err2) => {
-        if (err2) {
-          return res.status(500).json({ message: "Error al cerrar ticket" });
-        }
+    db.query(queryHistorial, [ticketIds], (err2, historiales) => {
+      if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
 
-        const insertHistorial = `
-          INSERT INTO historial_estado (
-            ticket_id, id_estado_anterior, id_nuevo_estado,
-            observacion, usuario_id, archivo_pdf
-          ) VALUES (?, ?, 6, ?, ?, ?)
-        `;
+      const historialPorTicket = {};
+      historiales.forEach(h => {
+        if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
+        historialPorTicket[h.ticket_id].push({
+          estado_anterior: h.id_estado_anterior || 'N/A',
+          nuevo_estado: h.id_nuevo_estado || 'N/A',
+          observacion: h.observacion,
+          fecha: h.fecha,
+          usuario_cambio: h.usuario_cambio
+        });
+      });
 
-        db.query(
-          insertHistorial,
-          [ticket_id, id_estado_anterior, detalle_solucion, usuario_id, archivo_solucion],
-          (err3) => {
-            if (err3) {
-              return res.status(500).json({ message: "Error al registrar historial" });
-            }
+      const respuesta = tickets.map(ticket => ({
+        ...ticket,
+        historial: historialPorTicket[ticket.id] || []
+      }));
 
-            res.json({ message: "Ticket cerrado correctamente" });
-          }
-        );
-      }
-    );
+      res.json(respuesta);
+    });
   });
 };
-*/
-// controllers/ticket.controller.js
+
 
 
 exports.cerrarTicket = (req, res) => {
