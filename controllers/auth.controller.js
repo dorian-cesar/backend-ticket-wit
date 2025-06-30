@@ -50,7 +50,7 @@ exports.forgotPassword = (req, res) => {
         });
         console.log( process.env.EMAIL_USER);
 
-        const resetLink = `https://tickets.dev-wit.com/reset-password.html?token=${token}`;
+        const resetLink = `https://ticket-wit.netlify.app/views/reset-password.html?token=${token}`;
         const mailOptions = {
           from: process.env.MAIL_USER,
           to: email,
