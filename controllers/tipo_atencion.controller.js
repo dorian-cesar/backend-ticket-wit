@@ -27,7 +27,7 @@ exports.editarTipo = (req, res) => {
   const { id } = req.params;
   const { nombre, area_id, ejecutor_id, categoria_id } = req.body;
   db.query("UPDATE tipo_atencion SET nombre = ?, area_id = ?, ejecutor_id = ?, categoria_id =? WHERE id = ?",
-    [nombre, area_id, ejecutor_id, categoria_id], (err) => {
+    [nombre, area_id, ejecutor_id, categoria_id, id], (err) => {
       if (err) return res.status(500).json({ error: "Error al editar tipo" });
       res.json({ message: "Tipo de atención actualizado" });
     });
