@@ -50,7 +50,7 @@ exports.forgotPassword = (req, res) => {
         });
         console.log( process.env.EMAIL_USER);
 
-        const resetLink = `http://localhost:3000/reset-password.html?token=${token}`;
+        const resetLink = `https://tickets.dev-wit.com/reset-password.html?token=${token}`;
         const mailOptions = {
           from: process.env.MAIL_USER,
           to: email,
