@@ -10,15 +10,31 @@ exports.listarUsuarios = (req, res) => {
 
 exports.crearUsuario = (req, res) => {
   const { nombre, email, password, rol, id_jefatura } = req.body;
+
   bcrypt.hash(password, 10, (err, hash) => {
-    if (err) return res.status(500).json({ error: "Error al encriptar contraseña" });
-    db.query("INSERT INTO users (nombre, email, password, rol, id_jefatura) VALUES (?, ?, ?, ?,?)",
-      [nombre, email, hash, rol, id_jefatura], (err2) => {
-        if (err2) return res.status(500).json({ error: "Error al crear usuario" });
-        res.json({ message: "Usuario creado" });
-      });
+    if (err) {
+      return res.status(500).json({ error: "Error al encriptar contraseña" });
+    }
+
+    db.query(
+      "INSERT INTO users (nombre, email, password, rol, id_jefatura) VALUES (?, ?, ?, ?, ?)",
+      [nombre, email, hash, rol, id_jefatura],
+      (err2) => {
+        if (err2) {
+          if (err2.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: "El correo electrónico ya está registrado" });
+          } else {
+            console.error("Error al crear usuario:", err2);
+            return res.status(500).json({ error: "Error al crear usuario" });
+          }
+        }
+
+        res.json({ message: "Usuario creado exitosamente" });
+      }
+    );
   });
 };
+
 
 /*
 exports.editarUsuario = (req, res) => {
