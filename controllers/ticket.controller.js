@@ -230,7 +230,7 @@ exports.listarPorUsuario = (req, res) => {
 
   const queryTickets = `
     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
-           t.fecha_creacion, a.nombre AS area,
+           t.fecha_creacion, t.aprobacion_solucion, t.solucion_observacion, a.nombre AS area,
            ta.nombre AS tipo_atencion,
            e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
            t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
@@ -295,7 +295,7 @@ exports.listarPorEjecutor = (req, res) => {
   const queryTickets = `
     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
            t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
            a.nombre AS area,
            ta.nombre AS tipo_atencion,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
@@ -590,7 +590,7 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
   const queryTickets = `
     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
            t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
            a.nombre AS area,
            ta.nombre AS tipo_atencion,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
