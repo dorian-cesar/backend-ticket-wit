@@ -863,3 +863,32 @@ exports.generarInformePDF = async (req, res) => {
   });
 };
 
+exports.aprobarSolucion = (req, res) => {
+    const { id } = req.params;
+    const { aprobacion_solucion, solucion_observacion } = req.body;
+
+    if (!['si', 'no'].includes(aprobacion_solucion)) {
+        return res.status(400).json({ error: "El campo aprobacion_solucion debe ser 'si' o 'no'" });
+    }
+
+    const sql = `
+        UPDATE tickets 
+        SET aprobacion_solucion = ?, solucion_observacion = ? 
+        WHERE id = ?
+    `;
+
+    db.query(sql, [aprobacion_solucion, solucion_observacion, id], (err, result) => {
+        if (err) {
+            console.error("Error al actualizar el ticket:", err);
+            return res.status(500).json({ error: "Error al actualizar el ticket" });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Ticket no encontrado" });
+        }
+
+        res.json({ message: "Aprobación registrada correctamente" });
+    });
+};
+
+
