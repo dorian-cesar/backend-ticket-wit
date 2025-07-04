@@ -882,7 +882,7 @@ exports.aprobarSolucion = (req, res) => {
     });
 };
 
-
+/*
 exports.obtenerPorId = (req, res) => {
   const ticketId = req.params.id;
 
@@ -899,6 +899,66 @@ exports.obtenerPorId = (req, res) => {
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users s ON t.solicitante_id = s.id
     LEFT JOIN users e ON t.ejecutor_id = e.id
+    WHERE t.id = ?
+  `;
+
+  db.query(queryTicket, [ticketId], (err, tickets) => {
+    if (err) return res.status(500).json({ message: "Error al obtener el ticket", error: err });
+    if (tickets.length === 0) return res.status(404).json({ message: "Ticket no encontrado" });
+
+    const ticket = tickets[0];
+
+    const queryHistorial = `
+      SELECT h.ticket_id, h.id_estado_anterior, h.id_nuevo_estado, h.observacion, h.fecha,
+             u.nombre AS usuario_cambio,
+             ea.nombre AS estado_anterior_nombre,
+             en.nombre AS estado_nuevo_nombre
+      FROM historial_estado h
+      JOIN users u ON h.usuario_id = u.id
+      LEFT JOIN estados_ticket ea ON h.id_estado_anterior = ea.id
+      LEFT JOIN estados_ticket en ON h.id_nuevo_estado = en.id
+      WHERE h.ticket_id = ?
+      ORDER BY h.fecha ASC
+    `;
+
+    db.query(queryHistorial, [ticketId], (err2, historiales) => {
+      if (err2) return res.status(500).json({ message: "Error al obtener historial", error: err2 });
+
+      const historial = historiales.map(h => ({
+        estado_anterior: h.estado_anterior_nombre || 'N/A',
+        nuevo_estado: h.estado_nuevo_nombre || 'N/A',
+        observacion: h.observacion,
+        fecha: h.fecha,
+        usuario_cambio: h.usuario_cambio
+      }));
+
+      res.json({
+        ...ticket,
+        historial
+      });
+    });
+  });
+};
+*/
+
+exports.obtenerPorId = (req, res) => {
+  const ticketId = req.params.id;
+
+  const queryTicket = `
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion, t.aprobacion_solucion, t.solucion_observacion,
+           a.nombre AS area,
+           ta.nombre AS tipo_atencion,
+           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
+           e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
+           j.nombre AS jefatura, j.email AS correo_jefatura, j.id AS id_jefatura
+    FROM tickets t
+    JOIN areas a ON t.area_id = a.id
+    JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
+    JOIN users s ON t.solicitante_id = s.id
+    LEFT JOIN users e ON t.ejecutor_id = e.id
+    LEFT JOIN users j ON t.id_jefatura = j.id
     WHERE t.id = ?
   `;
 
