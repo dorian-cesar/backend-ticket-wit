@@ -196,8 +196,8 @@ exports.listarTodos = (req, res) => {
       historiales.forEach(h => {
         if (!historialPorTicket[h.ticket_id]) historialPorTicket[h.ticket_id] = [];
         historialPorTicket[h.ticket_id].push({
-          estado_anterior: h.estado_anterior_nombre || 'N/A',
-          nuevo_estado: h.estado_nuevo_nombre || 'N/A',
+          estado_anterior: h.id_estado_anterior || 'N/A',
+          nuevo_estado: h.id_nuevo_estado || 'N/A',
           observacion: h.observacion,
           fecha: h.fecha,
           usuario_cambio: h.usuario_cambio
