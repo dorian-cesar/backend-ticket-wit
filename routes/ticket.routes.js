@@ -58,6 +58,8 @@ router.get("/descargar/:ticket_id", (req, res) => {
 
 router.post('/aprobar-solucion/:id',auth.verify, ticketController.aprobarSolucion);
 
-router.get("/informe/:ticket_id",  ticketController.generarInformePDF);
+//router.get("/informe/:ticket_id",  ticketController.generarInformePDF);
+
+router.get('/detalle/:id', ticketController.obtenerPorId);
 
 module.exports = router;
