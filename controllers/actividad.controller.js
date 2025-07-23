@@ -1,15 +1,25 @@
 //const db = require('../config/db');
 const db = require("../models/db");
 
-// Crear actividad
-exports.crearActividad = (req, res) => {
-  const { nombre } = req.body;
-  if (!nombre) return res.status(400).json({ message: "Nombre requerido" });
 
-  db.query("INSERT INTO actividad_realizada (nombre) VALUES (?)", [nombre], (err, result) => {
-    if (err) return res.status(500).json({ message: "Error al crear actividad", error: err });
-    res.json({ message: "Actividad creada", id: result.insertId });
-  });
+// Crear actividad (nombre y tipo_atencion_id obligatorios)
+exports.crearActividad = (req, res) => {
+  const { nombre, tipo_atencion_id } = req.body;
+
+  if (!nombre || tipo_atencion_id === undefined || tipo_atencion_id === null) {
+    return res.status(400).json({ message: "Nombre y tipo_atencion_id son requeridos" });
+  }
+
+  db.query(
+    "INSERT INTO actividad_realizada (nombre, tipo_atencion_id) VALUES (?, ?)",
+    [nombre, tipo_atencion_id],
+    (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: "Error al crear actividad", error: err });
+      }
+      res.json({ message: "Actividad creada", id: result.insertId });
+    }
+  );
 };
 
 // Listar todas
@@ -30,16 +40,34 @@ exports.obtenerActividad = (req, res) => {
   });
 };
 
-// Actualizar
+// Actualizar actividad (nombre y tipo_atencion_id)
 exports.actualizarActividad = (req, res) => {
   const { id } = req.params;
-  const { nombre } = req.body;
+  const { nombre, tipo_atencion_id } = req.body;
 
-  db.query("UPDATE actividad_realizada SET nombre = ? WHERE id = ?", [nombre, id], (err) => {
-    if (err) return res.status(500).json({ message: "Error al actualizar actividad", error: err });
-    res.json({ message: "Actividad actualizada" });
-  });
+  if (!nombre) {
+    return res.status(400).json({ message: "El nombre es requerido" });
+  }
+
+  db.query(
+    "UPDATE actividad_realizada SET nombre = ?, tipo_atencion_id = ? WHERE id = ?",
+    [nombre, tipo_atencion_id || null, id],
+    (err, result) => {
+      if (err) {
+        return res
+          .status(500)
+          .json({ message: "Error al actualizar actividad", error: err });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Actividad no encontrada" });
+      }
+
+      res.json({ message: "Actividad actualizada" });
+    }
+  );
 };
+
 
 // Eliminar
 exports.eliminarActividad = (req, res) => {

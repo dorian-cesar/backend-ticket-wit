@@ -147,6 +147,26 @@ exports.editarTicket = (req, res) => {
   });
 };
 
+// Eliminar ticket por ID
+exports.eliminarTicket = (req, res) => {
+  const { id } = req.params;
+
+  const deleteQuery = "DELETE FROM tickets WHERE id = ?";
+
+  db.query(deleteQuery, [id], (err, result) => {
+    if (err) {
+      return res.status(500).json({ message: "Error al eliminar el ticket", error: err });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Ticket no encontrado." });
+    }
+
+    res.json({ message: "Ticket eliminado correctamente." });
+  });
+};
+
+
 exports.listarTodos = (req, res) => {
 
   // const ejecutor_id = req.params.ejecutor_id;
@@ -157,6 +177,7 @@ exports.listarTodos = (req, res) => {
            t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
            a.nombre AS area,
            ta.nombre AS tipo_atencion,
+           t.tipo_atencion_id,  -- <<< ahora incluimos este campo directamente desde la tabla tickets
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
            e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
     FROM tickets t
@@ -283,9 +304,11 @@ exports.listarPorEjecutor = (req, res) => {
   const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion, 
            t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+           t.aprobacion_solucion, t.solucion_observacion,
+           t.tipo_atencion_id,  -- <<< ahora incluimos este campo directamente desde la tabla tickets
            t.ejecutor_id,
            a.nombre AS area,
            ta.nombre AS tipo_atencion,
@@ -294,14 +317,14 @@ exports.listarPorEjecutor = (req, res) => {
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users s ON t.solicitante_id = s.id
-   WHERE t.ejecutor_id = ? OR t.solicitante_id = ?
+    WHERE t.ejecutor_id = ? OR t.solicitante_id = ?
     ORDER BY t.fecha_creacion DESC
   `;
 
   db.query(queryTickets, [ejecutor_id, ejecutor_id], (err, tickets) => {
     if (err) return res.status(500).json({ message: "Error al listar tickets del ejecutor", error: err });
 
-    if (tickets.length === 0) return res.json([]); // sin tickets
+    if (tickets.length === 0) return res.json([]);
 
     const ticketIds = tickets.map(t => t.id);
 
@@ -342,6 +365,7 @@ exports.listarPorEjecutor = (req, res) => {
     });
   });
 };
+
 
 
 
