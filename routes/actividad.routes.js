@@ -8,5 +8,6 @@ router.get('/',auth.verify, actividadController.listarActividades);
 router.get('/:id',auth.verify, actividadController.obtenerActividad);
 router.put('/:id', actividadController.actualizarActividad);
 router.delete('/:id',auth.verify, actividadController.eliminarActividad);
+router.get('/tipo/:tipo_atencion_id', actividadController.obtenerPorTipoAtencion);
 
 module.exports = router;

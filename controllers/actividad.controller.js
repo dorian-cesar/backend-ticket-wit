@@ -49,3 +49,25 @@ exports.eliminarActividad = (req, res) => {
     res.json({ message: "Actividad eliminada" });
   });
 };
+
+// Obtener actividades por tipo_atencion_id
+exports.obtenerPorTipoAtencion = (req, res) => {
+  const { tipo_atencion_id } = req.params;
+
+  if (!tipo_atencion_id) {
+    return res.status(400).json({ message: "tipo_atencion_id requerido" });
+  }
+
+  db.query(
+    "SELECT * FROM actividad_realizada WHERE tipo_atencion_id = ?",
+    [tipo_atencion_id],
+    (err, rows) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ message: "Error al obtener actividades", error: err });
+
+      res.json(rows);
+    }
+  );
+};
