@@ -78,7 +78,7 @@ exports.crearTicket = (req, res) => {
             <p>Se ha generado un nuevo ticket desde su equipo.</p>
             <p><strong>Número de Ticket:</strong> ${ticketId}</p>
             <p><strong>Observaciones:</strong> ${observaciones}</p>
-            <p>Revisa el sistema para más información: <a href="https://mesa-de-ayuda.dev-wit.com/">Ver ticket</a></p>
+            <p>Revisa el sistema para más información: <a href="https://mesadeayuda.pullman.cl/">Ver ticket</a></p>
           `
         };
 
