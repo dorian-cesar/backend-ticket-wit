@@ -12,6 +12,7 @@ const emailRoutes = require("./routes/email.routes"); // ✅
 const estadoRoutes = require("./routes/estado.routes");
 const actividadRoutes = require('./routes/actividad.routes');
 const categoriaRoutes = require("./routes/categoria.routes");
+const direccionRoutes = require('./routes/direccion.route');
 
 const app = express();
 app.use(cors());
@@ -27,6 +28,7 @@ app.use("/api/tipos", tipoAtencionRoutes);
 app.use("/api/email", emailRoutes); // ✅
 app.use('/api/actividades', actividadRoutes);
 app.use("/api/categorias", categoriaRoutes);
+app.use('/api/direcciones', direccionRoutes);
 
 app.use("/api/estados", estadoRoutes);
 app.use(express.static("public"));
