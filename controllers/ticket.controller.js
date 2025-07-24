@@ -172,23 +172,29 @@ exports.listarTodos = (req, res) => {
   // const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
-           a.nombre AS area,
-           ta.nombre AS tipo_atencion,
-           t.tipo_atencion_id,  -- <<< ahora incluimos este campo directamente desde la tabla tickets
-           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
-           e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor
+    SELECT 
+      t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+      t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+      t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+      t.aprobacion_solucion, t.solucion_observacion,
+      t.tipo_atencion_id, 
+      t.direcciones_id,
+      a.nombre AS area,
+      ta.nombre AS tipo_atencion,
+      s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
+      e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
+      d.name AS direccion_nombre,
+      d.ubicacion AS direccion_ubicacion
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users s ON t.solicitante_id = s.id
     LEFT JOIN users e ON t.ejecutor_id = e.id
-   
+    LEFT JOIN direcciones d ON t.direcciones_id = d.id
     ORDER BY t.fecha_creacion DESC
-
   `;
+
+  
 
   db.query(queryTickets,  (err, tickets) => {
     if (err) return res.status(500).json({ message: "Error al listar tickets del ejecutor", error: err });
@@ -240,16 +246,23 @@ exports.listarPorUsuario = (req, res) => {
   const usuario_id = req.params.usuario_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf,
-           t.fecha_creacion, t.aprobacion_solucion, t.solucion_observacion, a.nombre AS area,
-           ta.nombre AS tipo_atencion,
-           e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion
+  SELECT 
+      t.id, t.id_estado, t.observaciones, t.archivo_pdf,
+      t.fecha_creacion, t.aprobacion_solucion, t.solucion_observacion,
+      a.nombre AS area,
+      ta.nombre AS tipo_atencion,
+      e.nombre AS ejecutor, e.email AS correo_ejecutor, e.id AS id_ejecutor,
+      t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+      t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+      t.tipo_atencion_id,
+      t.direcciones_id,
+      d.name AS direccion_nombre,
+      d.ubicacion AS direccion_ubicacion
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
-    JOIN users e ON t.ejecutor_id = e.id
+    LEFT JOIN users e ON t.ejecutor_id = e.id
+    LEFT JOIN direcciones d ON t.direcciones_id = d.id
     WHERE t.solicitante_id = ?
     ORDER BY t.fecha_creacion DESC
   `;
