@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path'); 
 
 exports.crearTicket = (req, res) => {
-  const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
+  const { solicitante_id, area_id, tipo_atencion_id, observaciones , direcciones_id} = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
 
   // Paso 1: obtener ejecutor_id desde tipo_atencion
@@ -38,8 +38,8 @@ exports.crearTicket = (req, res) => {
       const insertTicket = `
         INSERT INTO tickets (
           solicitante_id, area_id, tipo_atencion_id,
-          ejecutor_id, id_jefatura, observaciones, archivo_pdf
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ejecutor_id, id_jefatura, observaciones, archivo_pdf, direcciones_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const values = [
@@ -49,7 +49,8 @@ exports.crearTicket = (req, res) => {
         ejecutor_id,
         id_jefatura,
         observaciones,
-        archivo_pdf
+        archivo_pdf,
+        direcciones_id
       ];
 
       db.query(insertTicket, values, (err3, result) => {
@@ -317,19 +318,23 @@ exports.listarPorEjecutor = (req, res) => {
   const ejecutor_id = req.params.ejecutor_id;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion, 
-           t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
-           t.aprobacion_solucion, t.solucion_observacion,
-           t.tipo_atencion_id,  -- <<< ahora incluimos este campo directamente desde la tabla tickets
-           t.ejecutor_id,
-           a.nombre AS area,
-           ta.nombre AS tipo_atencion,
-           s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante
+        SELECT 
+      t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion, 
+      t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
+      t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,
+      t.aprobacion_solucion, t.solucion_observacion,
+      t.tipo_atencion_id, t.ejecutor_id,
+      a.nombre AS area,
+      ta.nombre AS tipo_atencion,
+      s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
+      t.direcciones_id AS direcciones_id,
+      d.name AS direccion_nombre,
+      d.ubicacion AS direccion_ubicacion
     FROM tickets t
     JOIN areas a ON t.area_id = a.id
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users s ON t.solicitante_id = s.id
+    LEFT JOIN direcciones d ON t.direcciones_id = d.id
     WHERE t.ejecutor_id = ? OR t.solicitante_id = ?
     ORDER BY t.fecha_creacion DESC
   `;
@@ -617,9 +622,13 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
   const id_jefatura = req.params.id_jefatura;
 
   const queryTickets = `
-    SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
+     SELECT t.id, t.id_estado, t.observaciones, t.archivo_pdf, t.fecha_creacion,
            t.id_actividad, t.detalle_solucion, t.tipo_atencion AS modo_atencion,
-           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion,t.aprobacion_solucion, t.solucion_observacion,
+           t.necesita_despacho, t.detalles_despacho, t.archivo_solucion, 
+           t.aprobacion_solucion, t.solucion_observacion,
+           t.direcciones_id AS direcciones_id,
+           d.name AS direccion_nombre,
+           d.ubicacion AS direccion_ubicacion,
            a.nombre AS area,
            ta.nombre AS tipo_atencion,
            s.nombre AS solicitante, s.email AS correo_solicitante, s.id AS id_solicitante,
@@ -629,6 +638,7 @@ exports.ticketsPorJefaturaPendientes = (req, res) => {
     JOIN tipo_atencion ta ON t.tipo_atencion_id = ta.id
     JOIN users s ON t.solicitante_id = s.id
     LEFT JOIN users e ON t.ejecutor_id = e.id
+    LEFT JOIN direcciones d ON t.direcciones_id = d.id
     WHERE t.id_jefatura = ?
     ORDER BY t.fecha_creacion DESC
   `;
