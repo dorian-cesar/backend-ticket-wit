@@ -14,6 +14,9 @@ const actividadRoutes = require('./routes/actividad.routes');
 const categoriaRoutes = require("./routes/categoria.routes");
 const direccionRoutes = require('./routes/direccion.route');
 
+require('./controllers/autoAprobacion');
+
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -35,3 +38,4 @@ app.use(express.static("public"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Servidor corriendo en puerto", PORT));
+
