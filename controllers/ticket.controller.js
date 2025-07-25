@@ -734,7 +734,8 @@ exports.cerrarTicket = (req, res) => {
           necesita_despacho = ?,
           detalles_despacho = ?,
           archivo_solucion = ?,
-          id_estado = 6
+          id_estado = 6,
+          fecha_cierre = NOW()
       WHERE id = ?
     `;
 
