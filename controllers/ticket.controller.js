@@ -101,7 +101,7 @@ exports.crearTicket = (req, res) => {
 
 exports.editarTicket = (req, res) => {
   const ticketId = req.params.id;
-  const { solicitante_id, area_id, tipo_atencion_id, observaciones } = req.body;
+  const { solicitante_id, area_id, tipo_atencion_id, observaciones,direcciones_id  } = req.body;
   const archivo_pdf = req.file ? req.file.filename : null;
 
   // Paso 1: obtener el ejecutor_id del nuevo tipo de atención
@@ -121,9 +121,9 @@ exports.editarTicket = (req, res) => {
     // Paso 2: construir la consulta de actualización dinámicamente
     let updateQuery = `
       UPDATE tickets
-      SET solicitante_id = ?, area_id = ?, tipo_atencion_id = ?, ejecutor_id = ?, observaciones = ?
+      SET solicitante_id = ?, area_id = ?, tipo_atencion_id = ?, ejecutor_id = ?, observaciones = ?, direcciones_id =?
     `;
-    const params = [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones];
+    const params = [solicitante_id, area_id, tipo_atencion_id, ejecutor_id, observaciones, direcciones_id];
 
     if (archivo_pdf) {
       updateQuery += `, archivo_pdf = ?`;
